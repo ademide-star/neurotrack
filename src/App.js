@@ -1,3 +1,4 @@
+ // eslint-disable-next-line react-hooks/exhaustive-deps
 import { useState, useRef, useEffect } from "react";
 
 // ─── BRAND ────────────────────────────────────────────────────────────────────
@@ -78,7 +79,7 @@ function TrajectoryCanvas({ sessions, activeIds, animate, canvasRef: extRef }) {
   const intRef = useRef(null);
   const canvasRef = extRef || intRef;
   const rafRef = useRef(null);
-
+ // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -163,6 +164,7 @@ function HeatmapCanvas({ positions, canvasRef: extRef }) {
 
 function SpeedGraph({ sessions, activeIds }) {
   const canvasRef = useRef(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext("2d");
