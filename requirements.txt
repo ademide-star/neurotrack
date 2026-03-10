@@ -1,8 +1,7 @@
-requirements.txt
-
 flask
 flask-cors
 opencv-python-headless
 numpy
+gunicorn
 
 
