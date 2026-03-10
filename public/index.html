@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#c9a84c" />
+    <meta name="description" content="NeuroMatrix Biosystems — AI-powered behavioral analysis platform for Morris Water Maze and rodent locomotion tracking" />
+    <meta name="author" content="NeuroMatrix Biosystems" />
+
+    <!-- Open Graph (for sharing links) -->
+    <meta property="og:title" content="NeuroMatrix Biosystems · NeuroTrack Pro" />
+    <meta property="og:description" content="AI-powered behavioral analysis for neuroscience research" />
+    <meta property="og:image" content="%PUBLIC_URL%/logo.png" />
+    <meta property="og:type" content="website" />
+
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.png" />
+    <title>NeuroMatrix Biosystems · NeuroTrack Pro</title>
+
+    <style>
+      /* Loading screen before React mounts */
+      body {
+        margin: 0;
+        background: #070b16;
+        font-family: 'Courier New', monospace;
+      }
+      #loading {
+        position: fixed;
+        inset: 0;
+        background: #070b16;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        z-index: 9999;
+      }
+      #loading img {
+        width: 80px;
+        height: 80px;
+        object-fit: contain;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      #loading .brand {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 4px;
+        color: #c9a84c;
+      }
+      #loading .sub {
+        font-size: 9px;
+        letter-spacing: 5px;
+        color: #4a5568;
+      }
+      #loading .bar {
+        width: 160px;
+        height: 2px;
+        background: #1e2a4a;
+        border-radius: 1px;
+        overflow: hidden;
+      }
+      #loading .bar-inner {
+        height: 100%;
+        background: linear-gradient(90deg, #c9a84c, #e8c96a);
+        border-radius: 1px;
+        animation: load 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(0.95); }
+      }
+      @keyframes load {
+        0% { width: 0%; margin-left: 0; }
+        50% { width: 100%; margin-left: 0; }
+        100% { width: 0%; margin-left: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading screen -->
+    <div id="loading">
+      <img src="/logo.png" alt="NeuroMatrix Biosystems" onerror="this.style.display='none'" />
+      <div class="brand">NEUROMATRIX</div>
+      <div class="sub">BIOSYSTEMS</div>
+      <div class="bar"><div class="bar-inner"></div></div>
+    </div>
+
+    <div id="root"></div>
+
+    <script>
+      // Hide loading screen once React mounts
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loader = document.getElementById('loading');
+          if (loader) {
+            loader.style.transition = 'opacity 0.5s';
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 500);
+          }
+        }, 800);
+      });
+    </script>
+  </body>
+</html>
