@@ -49,8 +49,8 @@ def process():
             frame_count += 1
 
             # Skip frames for speed (process every 2nd frame)
-            if frame_count % 2 != 0:
-                continue
+           if frame_count % 5 != 0:
+              continue
 
             try:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -111,3 +111,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"[Server] Starting NeuroMatrix server on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
