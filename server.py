@@ -6,6 +6,7 @@ import os
 import traceback
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 CORS(app, origins=["*"])
 
 @app.route("/")
@@ -111,4 +112,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"[Server] Starting NeuroMatrix server on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
