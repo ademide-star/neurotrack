@@ -1,14 +1,15 @@
 {
   "name": "neurotrack",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "main": "electron.js",
+  "homepage": "./",
   "dependencies": {
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
@@ -16,7 +17,10 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "electron": "electron .",
+    "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
+    "build-exe": "npm run build && electron-builder build --win"
   },
   "eslintConfig": {
     "extends": [
@@ -35,5 +39,49 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.0.0",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "com.neuromatrix.neurotrack",
+    "productName": "NeuroTrack Pro",
+    "copyright": "© 2026 NeuroMatrix Biosystems",
+    "extraMetadata": {
+      "main": "electron.js"
+    },
+    "files": [
+      "build/**/*",
+      "electron.js",
+      "server.py",
+      "requirements.txt",
+      "public/logo.png",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/neuromatrix-server.exe",
+        "to": "neuromatrix-server.exe"
+      },
+      {
+        "from": "server.py",
+        "to": "server.py"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/logo.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NeuroTrack Pro"
+    }
   }
 }
