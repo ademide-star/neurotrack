@@ -47,41 +47,41 @@
     "wait-on": "^9.0.4"
   },
   "build": {
-    "appId": "com.neuromatrix.neurotrack",
-    "productName": "NeuroTrack Pro",
-    "copyright": "© 2026 NeuroMatrix Biosystems",
-    "extraMetadata": {
-      "main": "electron.js"
+  "appId": "com.neuromatrix.neurotrack",
+  "productName": "NeuroTrack Pro",
+  "copyright": "© 2026 NeuroMatrix Biosystems",
+  "extraMetadata": {
+    "main": "electron.js"
+  },
+  "files": [
+    "build/**/*",
+    "electron.js",
+    "preload.js",
+    "server.py",
+    "requirements.txt",
+    "public/logo.png",
+    "node_modules/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "dist/neuromatrix-server.exe",
+      "to": "neuromatrix-server.exe"
     },
-    "files": [
-      "build/**/*",
-      "electron.js",
-      "server.py",
-      "requirements.txt",
-      "public/logo.png",
-      "node_modules/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "dist/neuromatrix-server.exe",
-        "to": "neuromatrix-server.exe"
-      },
-      {
-        "from": "server.py",
-        "to": "server.py"
-      }
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "public/logo.png",
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "NeuroTrack Pro"
+    {
+      "from": "server.py",
+      "to": "server.py"
     }
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "public/logo.png",
+    "signAndEditExecutable": false
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "NeuroTrack Pro"
   }
 }
