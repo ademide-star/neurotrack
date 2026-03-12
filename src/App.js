@@ -15,7 +15,11 @@ const BRAND = {
   dim:     "#2d3748",
 };
 
-const API = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+const API = (window.location.hostname === "localhost" || 
+             window.location.hostname === "127.0.0.1" ||
+             window.location.protocol === "file:")
+  ? "http://127.0.0.1:5000"
+  : process.env.REACT_APP_API_URL;
 const SESSION_COLORS = ["#c9a84c","#6c63ff","#00f5c4","#ff6b6b","#63b3ed","#fc8181","#68d391","#f687b3"];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
