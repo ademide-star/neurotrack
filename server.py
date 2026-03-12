@@ -3,10 +3,14 @@ from flask_cors import CORS
 import cv2
 import numpy as np
 import os
+import tempfile
 import traceback
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB limit
+
+# CORS: allow any origin for desktop app (localhost or file://)
+# If you ever deploy this publicly, restrict origins!
 CORS(app, origins=["*"])
 
 @app.route("/")
@@ -19,8 +23,12 @@ def process():
         return jsonify({"error": "No video file received"}), 400
 
     file = request.files["video"]
-    temp_path = "temp_video.mp4"
-    
+
+    # Create a unique temporary file
+    temp_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    temp_path = temp_file.name
+    temp_file.close()  # Close so we can reuse it
+
     try:
         # Save uploaded file
         file.save(temp_path)
@@ -36,8 +44,11 @@ def process():
         fps = cap.get(cv2.CAP_PROP_FPS)
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        print(f"[Server] Video info: {width}x{height} @ {fps}fps, {total_frames} frames")
+
+        if total_frames == 0:
+            return jsonify({"error": "Video contains no frames"}), 400
+
+        print(f"[Server] Video info: {width}x{height} @ {fps:.2f}fps, {total_frames} frames")
 
         positions = []
         frame_count = 0
@@ -49,9 +60,9 @@ def process():
 
             frame_count += 1
 
-            # Skip frames for speed (process every 2nd frame)
-           if frame_count % 5 != 0:
-              continue
+            # Process every 5th frame to improve speed (adjust as needed)
+            if frame_count % 5 != 0:
+                continue
 
             try:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -66,18 +77,18 @@ def process():
                 if contours:
                     largest = max(contours, key=cv2.contourArea)
                     area = cv2.contourArea(largest)
-                    
+
                     # Filter out noise
                     if area > 50:
                         M = cv2.moments(largest)
                         if M["m00"] != 0:
                             cx = int(M["m10"] / M["m00"])
                             cy = int(M["m01"] / M["m00"])
-                            
+
                             # Normalize to 600x600 canvas
                             nx = int((cx / width) * 600)
                             ny = int((cy / height) * 600)
-                            
+
                             positions.append({"x": nx, "y": ny})
 
             except Exception as frame_err:
@@ -85,7 +96,7 @@ def process():
                 continue
 
         cap.release()
-        print(f"[Server] Processing complete: {len(positions)} positions")
+        print(f"[Server] Processing complete: {len(positions)} positions extracted")
 
         return jsonify({
             "positions": positions,
@@ -101,9 +112,11 @@ def process():
 
     except Exception as e:
         print(f"[Server] Error: {traceback.format_exc()}")
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+        # Return a generic error message (avoid exposing internal paths)
+        return jsonify({"error": "Server error during processing"}), 500
 
     finally:
+        # Clean up the temporary file
         if os.path.exists(temp_path):
             os.remove(temp_path)
             print("[Server] Temp file cleaned up")
@@ -112,5 +125,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"[Server] Starting NeuroMatrix server on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
-
-
