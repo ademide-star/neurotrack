@@ -1,27 +1,29 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useRef, useEffect } from "react";
+import BehavioralSuite from "./BehavioralSuite";
 
 // ─── BRAND ────────────────────────────────────────────────────────────────────
 const BRAND = {
-  gold:    "#c9a84c",
+  gold:      "#c9a84c",
   goldLight: "#e8c96a",
-  goldDim: "#c9a84c44",
-  bg:      "#070b16",
-  surface: "#0a0e1a",
-  panel:   "#0d1428",
-  border:  "#1e2a4a",
-  text:    "#e2e8f0",
-  muted:   "#4a5568",
-  dim:     "#2d3748",
+  goldDim:   "#c9a84c44",
+  bg:        "#070b16",
+  surface:   "#0a0e1a",
+  panel:     "#0d1428",
+  border:    "#1e2a4a",
+  text:      "#e2e8f0",
+  muted:     "#4a5568",
+  dim:       "#2d3748",
 };
 
-const API = window.electronAPI 
-  ? window.electronAPI.getApiUrl() 
-  : (window.location.hostname === "localhost" || 
+const API = window.electronAPI
+  ? window.electronAPI.getApiUrl()
+  : (window.location.hostname === "localhost" ||
      window.location.hostname === "127.0.0.1" ||
      window.location.protocol === "file:")
     ? "http://127.0.0.1:5000"
     : process.env.REACT_APP_API_URL;
+
 const SESSION_COLORS = ["#c9a84c","#6c63ff","#00f5c4","#ff6b6b","#63b3ed","#fc8181","#68d391","#f687b3"];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
@@ -33,7 +35,7 @@ function computeStats(positions) {
   for (let i = 1; i < positions.length; i++) {
     const dx = positions[i].x - positions[i-1].x;
     const dy = positions[i].y - positions[i-1].y;
-    const d = Math.sqrt(dx*dx + dy*dy);
+    const d  = Math.sqrt(dx*dx + dy*dy);
     distance += d;
     speeds.push(d * 0.042 * 30);
   }
@@ -43,17 +45,17 @@ function computeStats(positions) {
     if (dc < 80) centerCount++;
     if (dp < 22) platformCount++;
   });
-  const total = positions.length;
-  const distM = (distance * 0.042).toFixed(2);
-  const durationSec = (total / 30).toFixed(1);
-  const avgSpeed = (distM / durationSec).toFixed(2);
-  const maxSpeed = Math.max(...speeds).toFixed(2);
+  const total        = positions.length;
+  const distM        = (distance * 0.042).toFixed(2);
+  const durationSec  = (total / 30).toFixed(1);
+  const avgSpeed     = (distM / durationSec).toFixed(2);
+  const maxSpeed     = Math.max(...speeds).toFixed(2);
   const peripheryCount = Math.max(0, total - centerCount - platformCount);
   return {
     distance: distM, avgSpeed, maxSpeed,
-    centerPct: Math.round((centerCount / total) * 100),
-    peripheryPct: Math.round((peripheryCount / total) * 100),
-    platformPct: Math.round((platformCount / total) * 100),
+    centerPct:   Math.round((centerCount    / total) * 100),
+    peripheryPct:Math.round((peripheryCount / total) * 100),
+    platformPct: Math.round((platformCount  / total) * 100),
     frames: total, durationSec,
   };
 }
@@ -69,36 +71,32 @@ function downloadCanvas(canvas, filename) {
 function drawPool(ctx, W = 600, H = 600) {
   ctx.fillStyle = BRAND.bg;
   ctx.fillRect(0, 0, W, H);
-  // Outer pool ring
   ctx.beginPath(); ctx.arc(W/2, H/2, 240, 0, Math.PI*2);
   ctx.strokeStyle = "#c9a84c33"; ctx.lineWidth = 2; ctx.stroke();
-  // Center zone
   ctx.beginPath(); ctx.arc(W/2, H/2, 80, 0, Math.PI*2);
   ctx.strokeStyle = "rgba(201,168,76,0.12)"; ctx.lineWidth = 1; ctx.stroke();
-  // Platform
   ctx.beginPath(); ctx.arc(420, 200, 22, 0, Math.PI*2);
   ctx.strokeStyle = "rgba(201,168,76,0.4)"; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = "rgba(201,168,76,0.08)"; ctx.fill();
 }
 
 function TrajectoryCanvas({ sessions, activeIds, animate, canvasRef: extRef }) {
-  const intRef = useRef(null);
+  const intRef   = useRef(null);
   const canvasRef = extRef || intRef;
-  const rafRef = useRef(null);
- // eslint-disable-next-line react-hooks/exhaustive-deps
+  const rafRef   = useRef(null);
+
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext("2d");
     let drawn = 0;
     const allData = sessions.filter(s => activeIds.includes(s.id) && s.positions?.length > 0);
-    const maxLen = allData.length > 0 ? Math.max(...allData.map(s => s.positions.length)) : 0;
+    const maxLen  = allData.length > 0 ? Math.max(...allData.map(s => s.positions.length)) : 0;
 
     function draw() {
       ctx.clearRect(0, 0, 600, 600);
       drawPool(ctx);
       if (allData.length === 0) {
-        ctx.fillStyle = BRAND.dim; ctx.font = "13px monospace";
-        ctx.textAlign = "center";
+        ctx.fillStyle = BRAND.dim; ctx.font = "13px monospace"; ctx.textAlign = "center";
         ctx.fillText("Upload videos to begin analysis", 300, 295);
         ctx.fillStyle = BRAND.muted; ctx.font = "10px monospace";
         ctx.fillText("NeuroMatrix Biosystems", 300, 318);
@@ -107,16 +105,14 @@ function TrajectoryCanvas({ sessions, activeIds, animate, canvasRef: extRef }) {
       const limit = animate ? Math.min(drawn, maxLen) : maxLen;
       allData.forEach((s, si) => {
         const color = SESSION_COLORS[si % SESSION_COLORS.length];
-        const pts = s.positions.slice(0, Math.min(limit, s.positions.length));
+        const pts   = s.positions.slice(0, Math.min(limit, s.positions.length));
         if (pts.length < 2) return;
         ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
         ctx.strokeStyle = color + "cc"; ctx.lineWidth = 1.8; ctx.stroke();
         const last = pts[pts.length-1];
-        ctx.beginPath(); ctx.arc(last.x, last.y, 7, 0, Math.PI*2);
-        ctx.fillStyle = color; ctx.fill();
-        ctx.beginPath(); ctx.arc(last.x, last.y, 13, 0, Math.PI*2);
-        ctx.strokeStyle = color + "55"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.beginPath(); ctx.arc(last.x, last.y, 7,  0, Math.PI*2); ctx.fillStyle = color; ctx.fill();
+        ctx.beginPath(); ctx.arc(last.x, last.y, 13, 0, Math.PI*2); ctx.strokeStyle = color+"55"; ctx.lineWidth = 2; ctx.stroke();
         ctx.fillStyle = color; ctx.font = "9px monospace"; ctx.textAlign = "left";
         ctx.fillText(s.name.slice(0, 10), last.x + 14, last.y + 4);
       });
@@ -130,7 +126,7 @@ function TrajectoryCanvas({ sessions, activeIds, animate, canvasRef: extRef }) {
 }
 
 function HeatmapCanvas({ positions, canvasRef: extRef }) {
-  const intRef = useRef(null);
+  const intRef   = useRef(null);
   const canvasRef = extRef || intRef;
 
   useEffect(() => {
@@ -150,14 +146,13 @@ function HeatmapCanvas({ positions, canvasRef: extRef }) {
       if (gx >= 0 && gy >= 0) grid[gy][gx]++;
     });
     const max = Math.max(1, ...grid.flat());
-    const cW = 600/BINS, cH = 600/BINS;
+    const cW  = 600/BINS, cH = 600/BINS;
     grid.forEach((row, gy) => row.forEach((val, gx) => {
       if (!val) return;
       const t = val / max;
-      // Gold → white heat gradient
       const r = Math.round(50 + t * 205);
       const g = Math.round(t < 0.5 ? t*2*168 : 168 + (t-0.5)*2*87);
-      const b = Math.round(t < 0.5 ? t*2*76 : Math.max(0, 76 - (t-0.5)*2*76));
+      const b = Math.round(t < 0.5 ? t*2*76  : Math.max(0, 76 - (t-0.5)*2*76));
       ctx.fillStyle = `rgba(${r},${g},${b},${0.25 + t*0.75})`;
       ctx.fillRect(gx*cW, gy*cH, cW, cH);
     }));
@@ -170,7 +165,6 @@ function HeatmapCanvas({ positions, canvasRef: extRef }) {
 
 function SpeedGraph({ sessions, activeIds }) {
   const canvasRef = useRef(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -187,7 +181,7 @@ function SpeedGraph({ sessions, activeIds }) {
       ctx.strokeStyle = BRAND.border; ctx.lineWidth = 1; ctx.stroke();
     }
     active.forEach((s, si) => {
-      const color = SESSION_COLORS[si % SESSION_COLORS.length];
+      const color  = SESSION_COLORS[si % SESSION_COLORS.length];
       const speeds = [];
       for (let i = 1; i < s.positions.length; i++) {
         const dx = s.positions[i].x - s.positions[i-1].x;
@@ -208,7 +202,7 @@ function SpeedGraph({ sessions, activeIds }) {
       ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
     });
     ctx.fillStyle = BRAND.muted; ctx.font = "9px monospace";
-    ctx.textAlign = "left"; ctx.fillText("Speed (m/s)", 4, 14);
+    ctx.textAlign = "left";   ctx.fillText("Speed (m/s)", 4, 14);
     ctx.textAlign = "center"; ctx.fillText("Frames", W/2, H-2);
   }, [sessions, activeIds]);
   return <canvas ref={canvasRef} width={540} height={160} style={{ width:"100%", borderRadius:8 }} />;
@@ -230,17 +224,17 @@ function DistanceBar({ sessions, activeIds }) {
       ctx.textAlign = "center"; ctx.fillText("No sessions", W/2, H/2); return;
     }
     const maxD = Math.max(...data.map(d => d.dist), 1);
-    const bW = Math.min(55, (W-60)/data.length - 8);
+    const bW   = Math.min(55, (W-60)/data.length - 8);
     data.forEach((d, i) => {
       const isActive = activeIds.includes(d.id);
       const bH = (d.dist/maxD)*(H-55);
-      const x = 30 + i*((W-40)/data.length) + ((W-40)/data.length - bW)/2;
-      const y = H - 30 - bH;
-      ctx.fillStyle = isActive ? d.color + "cc" : d.color + "33";
+      const x  = 30 + i*((W-40)/data.length) + ((W-40)/data.length - bW)/2;
+      const y  = H - 30 - bH;
+      ctx.fillStyle = isActive ? d.color+"cc" : d.color+"33";
       ctx.fillRect(x, y, bW, bH);
-      ctx.fillStyle = isActive ? d.color : d.color + "77";
+      ctx.fillStyle = isActive ? d.color : d.color+"77";
       ctx.font = "9px monospace"; ctx.textAlign = "center";
-      ctx.fillText(d.dist + "m", x+bW/2, y-4);
+      ctx.fillText(d.dist+"m", x+bW/2, y-4);
       ctx.fillStyle = BRAND.muted;
       ctx.fillText(d.name.slice(0,8), x+bW/2, H-10);
     });
@@ -278,9 +272,9 @@ function DropZone({ onFiles, processing }) {
   };
   return (
     <div
-      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+      onDragOver={e  => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
-      onDrop={e => { e.preventDefault(); setDragging(false); handle(e.dataTransfer.files); }}
+      onDrop={e      => { e.preventDefault(); setDragging(false); handle(e.dataTransfer.files); }}
       onClick={() => !processing && inputRef.current.click()}
       style={{
         border: `2px dashed ${dragging ? BRAND.gold : BRAND.border}`,
@@ -303,7 +297,7 @@ function GoldDivider() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px" }}>
       <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${BRAND.gold}44)` }} />
-      <span style={{ fontSize: 7, color: BRAND.gold + "66", letterSpacing: 3 }}>✦</span>
+      <span style={{ fontSize: 7, color: BRAND.gold+"66", letterSpacing: 3 }}>✦</span>
       <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${BRAND.gold}44, transparent)` }} />
     </div>
   );
@@ -311,14 +305,15 @@ function GoldDivider() {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function NeuroMatrixApp() {
-  const [sessions, setSessions] = useState([]);
-  const [activeIds, setActiveIds] = useState([]);
-  const [processing, setProcessing] = useState(false);
+  const [sessions,       setSessions]       = useState([]);
+  const [activeIds,      setActiveIds]      = useState([]);
+  const [processing,     setProcessing]     = useState(false);
   const [processingName, setProcessingName] = useState("");
-  const [activeTab, setActiveTab] = useState("Trajectory");
-  const [animating, setAnimating] = useState(false);
-  const [error, setError] = useState(null);
-  const [queue, setQueue] = useState([]);
+  const [activeTab,      setActiveTab]      = useState("Trajectory");
+  const [animating,      setAnimating]      = useState(false);
+  const [error,          setError]          = useState(null);
+  const [queue,          setQueue]          = useState([]);
+  const [page,           setPage]           = useState("mwm"); // "mwm" | "behavioral"
 
   const trajRef = useRef(null);
   const heatRef = useRef(null);
@@ -329,7 +324,7 @@ export default function NeuroMatrixApp() {
   const activeSession = sessions.find(s => s.id === activeIds[activeIds.length-1]);
   const stats = computeStats(activeSession?.positions);
 
-  // Queue processor
+  // ── Queue processor ──────────────────────────────────────────────────────
   useEffect(() => {
     if (processing || queue.length === 0) return;
     const file = queue[0];
@@ -359,128 +354,154 @@ export default function NeuroMatrixApp() {
         setActiveIds(prev => [...prev, id]);
       } catch (err) {
         setError(err.message.includes("fetch")
-          ? "Cannot reach server — is server.py running on :5000?"
+          ? "⚠ Cannot reach server — is server.py running on :5000?"
           : err.message);
       } finally { setProcessing(false); setProcessingName(""); }
     })();
   }, [queue, processing]);
 
-  const handleFiles = files => setQueue(q => [...q, ...files]);
-  const toggleId = id => setActiveIds(prev =>
-    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-  );
-  const removeSession = id => {
-    setSessions(prev => prev.filter(s => s.id !== id));
-    setActiveIds(prev => prev.filter(x => x !== id));
-  };
-  const exportCSV = () => {
+  const handleFiles   = files => setQueue(q => [...q, ...files]);
+  const toggleId      = id   => setActiveIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const removeSession = id   => { setSessions(prev => prev.filter(s => s.id !== id)); setActiveIds(prev => prev.filter(x => x !== id)); };
+  const exportCSV     = ()   => {
     const active = sessions.filter(s => activeIds.includes(s.id));
     if (!active.length) return;
     const rows = ["Session,Frame,X,Y"];
-    active.forEach(s => s.positions.forEach((p, i) =>
-      rows.push(`${s.name},${i},${p.x},${p.y}`)
-    ));
+    active.forEach(s => s.positions.forEach((p, i) => rows.push(`${s.name},${i},${p.x},${p.y}`)));
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
     a.href = url; a.download = "neuromatrix_export.csv"; a.click();
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, fontFamily: "'Space Mono','Courier New',monospace", color: BRAND.text, display: "flex", flexDirection: "column" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: ${BRAND.bg}; }
-        ::-webkit-scrollbar-thumb { background: ${BRAND.gold}44; border-radius: 2px; }
-        button { font-family: inherit; transition: all 0.2s; }
-        button:hover { opacity: 0.8; }
-      `}</style>
+  // ── Shared styles ────────────────────────────────────────────────────────
+  const GLOBAL_STYLE = `
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: ${BRAND.bg}; }
+    ::-webkit-scrollbar-thumb { background: ${BRAND.gold}44; border-radius: 2px; }
+    button { font-family: inherit; transition: all 0.2s; }
+    button:hover { opacity: 0.8; }
+  `;
 
-      {/* ── HEADER ── */}
-      <header style={{
-        background: `linear-gradient(90deg, ${BRAND.bg} 0%, ${BRAND.surface} 50%, ${BRAND.bg} 100%)`,
-        borderBottom: `1px solid ${BRAND.gold}33`,
-        padding: "0 24px", height: 58,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        position: "sticky", top: 0, zIndex: 100,
-        boxShadow: `0 1px 20px ${BRAND.gold}11`
-      }}>
-        {/* Logo + Brand */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img
-            src="/logo.png"
-            alt="NeuroMatrix Biosystems"
-            style={{ height: 40, width: 40, objectFit: "contain", borderRadius: 8 }}
-            onError={e => {
-              e.target.style.display = "none";
-              e.target.nextSibling.style.display = "flex";
-            }}
-          />
-          {/* Fallback icon if logo not found */}
-          <div style={{
-            display: "none", width: 40, height: 40, borderRadius: 8,
-            background: `linear-gradient(135deg, ${BRAND.gold}44, ${BRAND.gold}22)`,
-            border: `1px solid ${BRAND.gold}44`,
-            alignItems: "center", justifyContent: "center", fontSize: 18
-          }}>🧠</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: 2, color: BRAND.gold }}>
-              NEURO<span style={{ color: BRAND.text }}>MATRIX</span>
-            </span>
-            <span style={{ fontSize: 7, color: BRAND.muted, letterSpacing: 4, textTransform: "uppercase" }}>
-              Biosystems
-            </span>
-          </div>
-          <div style={{ width: 1, height: 28, background: BRAND.border, margin: "0 4px" }} />
-          <span style={{ fontSize: 9, color: BRAND.muted, letterSpacing: 1 }}>NeuroTrack Pro</span>
+  // ── Shared header (same on both pages) ───────────────────────────────────
+  const NAV_PAGES = [
+    { id: "mwm",        label: "🏊 MWM Tracker"     },
+    { id: "behavioral", label: "🧪 Behavioral Suite" },
+  ];
+
+  const sharedHeader = (
+    <header style={{
+      background: `linear-gradient(90deg, ${BRAND.bg} 0%, ${BRAND.surface} 50%, ${BRAND.bg} 100%)`,
+      borderBottom: `1px solid ${BRAND.gold}33`,
+      padding: "0 24px", height: 58,
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      position: "sticky", top: 0, zIndex: 100,
+      boxShadow: `0 1px 20px ${BRAND.gold}11`
+    }}>
+      {/* Logo */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <img
+          src="/logo.png"
+          alt="NeuroMatrix Biosystems"
+          style={{ height: 40, width: 40, objectFit: "contain", borderRadius: 8 }}
+          onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+        />
+        <div style={{
+          display: "none", width: 40, height: 40, borderRadius: 8,
+          background: `linear-gradient(135deg, ${BRAND.gold}44, ${BRAND.gold}22)`,
+          border: `1px solid ${BRAND.gold}44`, alignItems: "center", justifyContent: "center", fontSize: 18
+        }}>🧠</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: 2, color: BRAND.gold }}>
+            NEURO<span style={{ color: BRAND.text }}>MATRIX</span>
+          </span>
+          <span style={{ fontSize: 7, color: BRAND.muted, letterSpacing: 4, textTransform: "uppercase" }}>Biosystems</span>
         </div>
+        <div style={{ width: 1, height: 28, background: BRAND.border, margin: "0 4px" }} />
+        <span style={{ fontSize: 9, color: BRAND.muted, letterSpacing: 1 }}>NeuroTrack Pro</span>
+      </div>
 
-        {/* Action Buttons */}
+      {/* ── Page navigation ── */}
+      <div style={{ display: "flex", gap: "4px", background: BRAND.surface, padding: "4px", borderRadius: "10px", border: `1px solid ${BRAND.border}` }}>
+        {NAV_PAGES.map(p => (
+          <button
+            key={p.id}
+            onClick={() => setPage(p.id)}
+            style={{
+              padding: "6px 18px", borderRadius: "7px", border: "none",
+              cursor: "pointer", fontSize: "11px", fontFamily: "inherit",
+              fontWeight: "700", letterSpacing: "0.05em", transition: "all 0.2s",
+              background: page === p.id ? BRAND.gold      : "transparent",
+              color:      page === p.id ? BRAND.bg : BRAND.muted,
+            }}
+          >{p.label}</button>
+        ))}
+      </div>
+
+      {/* ── Action buttons (MWM only) ── */}
+      {page === "mwm" ? (
         <div style={{ display: "flex", gap: 6 }}>
           {[
-            ["▶ ANIMATE",    () => setAnimating(a => !a),                                          animating ? "#ff6b6b" : BRAND.gold],
+            ["▶ ANIMATE",    () => setAnimating(a => !a),                                                animating ? "#ff6b6b" : BRAND.gold],
             ["⬇ TRAJECTORY", () => trajRef.current && downloadCanvas(trajRef.current, "trajectory.png"), "#6c63ff"],
             ["⬇ HEATMAP",    () => heatRef.current && downloadCanvas(heatRef.current, "heatmap.png"),    "#00f5c4"],
-            ["⬇ CSV",        exportCSV,                                                             "#68d391"],
+            ["⬇ CSV",        exportCSV,                                                                  "#68d391"],
           ].map(([label, fn, color]) => (
             <button key={label} onClick={fn} style={{
-              background: color + "15", border: `1px solid ${color}44`,
+              background: color+"15", border: `1px solid ${color}44`,
               color, padding: "5px 12px", borderRadius: 6,
               cursor: "pointer", fontSize: 9, letterSpacing: 1
             }}>{label}</button>
           ))}
         </div>
+      ) : <div /> }
 
-        {/* Status */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {processing && (
-            <span style={{ fontSize: 9, color: BRAND.gold, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              ⏳ {processingName}
-            </span>
-          )}
-          {queue.length > 0 && (
-            <span style={{ fontSize: 9, color: "#6c63ff" }}>{queue.length} queued</span>
-          )}
-          <span style={{
-            background: processing ? BRAND.gold + "22" : BRAND.gold + "11",
-            border: `1px solid ${processing ? BRAND.gold + "66" : BRAND.gold + "33"}`,
-            color: BRAND.gold, borderRadius: 20, padding: "3px 10px", fontSize: 9, letterSpacing: 1
-          }}>
-            {processing ? "PROCESSING" : "READY"}
+      {/* Status */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {processing && (
+          <span style={{ fontSize: 9, color: BRAND.gold, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            ⏳ {processingName}
           </span>
-        </div>
-      </header>
+        )}
+        {queue.length > 0 && <span style={{ fontSize: 9, color: "#6c63ff" }}>{queue.length} queued</span>}
+        <span style={{
+          background: processing ? BRAND.gold+"22" : BRAND.gold+"11",
+          border: `1px solid ${processing ? BRAND.gold+"66" : BRAND.gold+"33"}`,
+          color: BRAND.gold, borderRadius: 20, padding: "3px 10px", fontSize: 9, letterSpacing: 1
+        }}>
+          {processing ? "PROCESSING" : "READY"}
+        </span>
+      </div>
+    </header>
+  );
+
+  // ── BEHAVIORAL SUITE PAGE ─────────────────────────────────────────────────
+  if (page === "behavioral") {
+    return (
+      <div style={{ minHeight: "100vh", background: BRAND.bg, fontFamily: "'Space Mono','Courier New',monospace", color: BRAND.text, display: "flex", flexDirection: "column" }}>
+        <style>{GLOBAL_STYLE}</style>
+        {sharedHeader}
+        <BehavioralSuite />
+      </div>
+    );
+  }
+
+  // ── MWM TRACKER PAGE ──────────────────────────────────────────────────────
+  return (
+    <div style={{ minHeight: "100vh", background: BRAND.bg, fontFamily: "'Space Mono','Courier New',monospace", color: BRAND.text, display: "flex", flexDirection: "column" }}>
+      <style>{GLOBAL_STYLE}</style>
+      {sharedHeader}
 
       <div style={{ display: "flex", flex: 1 }}>
+
         {/* ── SIDEBAR ── */}
         <aside style={{
           width: 234, background: BRAND.surface,
           borderRight: `1px solid ${BRAND.gold}22`,
-          padding: "16px 0", display: "flex", flexDirection: "column",
-          overflowY: "auto"
+          padding: "16px 0", display: "flex", flexDirection: "column", overflowY: "auto"
         }}>
           <div style={{ padding: "0 14px 14px" }}>
             <DropZone onFiles={handleFiles} processing={processing} />
@@ -495,7 +516,7 @@ export default function NeuroMatrixApp() {
 
           <GoldDivider />
 
-          <div style={{ padding: "4px 14px 10px", fontSize: 9, color: BRAND.gold + "99", letterSpacing: 2, textTransform: "uppercase" }}>
+          <div style={{ padding: "4px 14px 10px", fontSize: 9, color: BRAND.gold+"99", letterSpacing: 2, textTransform: "uppercase" }}>
             Sessions ({sessions.length})
           </div>
 
@@ -506,9 +527,9 @@ export default function NeuroMatrixApp() {
           )}
 
           {sessions.map((s, i) => {
-            const color = SESSION_COLORS[i % SESSION_COLORS.length];
+            const color    = SESSION_COLORS[i % SESSION_COLORS.length];
             const isActive = activeIds.includes(s.id);
-            const st = computeStats(s.positions);
+            const st       = computeStats(s.positions);
             return (
               <div key={s.id} style={{
                 borderLeft: `2px solid ${isActive ? color : "transparent"}`,
@@ -525,10 +546,7 @@ export default function NeuroMatrixApp() {
                     <span style={{ width: 7, height: 7, borderRadius: "50%", background: isActive ? color : BRAND.dim, flexShrink: 0 }} />
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
                   </button>
-                  <button onClick={() => removeSession(s.id)} style={{
-                    background: "none", border: "none", color: BRAND.dim,
-                    cursor: "pointer", fontSize: 11, padding: "0 2px", flexShrink: 0
-                  }}>✕</button>
+                  <button onClick={() => removeSession(s.id)} style={{ background: "none", border: "none", color: BRAND.dim, cursor: "pointer", fontSize: 11, padding: "0 2px", flexShrink: 0 }}>✕</button>
                 </div>
                 <div style={{ fontSize: 9, color: BRAND.muted, paddingLeft: 13 }}>
                   {st.frames} frames · {st.distance}m · {st.avgSpeed}m/s
@@ -540,11 +558,10 @@ export default function NeuroMatrixApp() {
           <div style={{ flex: 1 }} />
           <GoldDivider />
 
-          {/* Sidebar Footer */}
           <div style={{ padding: "12px 14px", textAlign: "center" }}>
             <img src="/logo.png" alt="" style={{ height: 32, objectFit: "contain", marginBottom: 6, opacity: 0.6 }}
               onError={e => e.target.style.display = "none"} />
-            <div style={{ fontSize: 9, color: BRAND.gold + "88", letterSpacing: 2, marginBottom: 2 }}>NEUROMATRIX</div>
+            <div style={{ fontSize: 9, color: BRAND.gold+"88", letterSpacing: 2, marginBottom: 2 }}>NEUROMATRIX</div>
             <div style={{ fontSize: 7, color: BRAND.muted, letterSpacing: 3, marginBottom: 6 }}>BIOSYSTEMS</div>
             <div style={{ fontSize: 7, color: BRAND.dim, lineHeight: 1.8 }}>
               NeuroTrack Pro v2.1<br />
@@ -557,7 +574,6 @@ export default function NeuroMatrixApp() {
         {/* ── MAIN ── */}
         <main style={{ flex: 1, padding: "20px 24px", overflow: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* Page Title */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <h1 style={{ fontSize: 18, fontWeight: 700, letterSpacing: 1, color: BRAND.text }}>
@@ -574,11 +590,11 @@ export default function NeuroMatrixApp() {
 
           {/* Stats Row */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10 }}>
-            <StatCard label="Active Sessions" value={activeIds.length}                          color={BRAND.gold} />
-            <StatCard label="Distance"        value={activeSession ? stats.distance   : "—"} unit="m"   color="#6c63ff" />
-            <StatCard label="Avg Speed"       value={activeSession ? stats.avgSpeed   : "—"} unit="m/s" color="#00f5c4" />
-            <StatCard label="Max Speed"       value={activeSession ? stats.maxSpeed   : "—"} unit="m/s" color="#fc8181" />
-            <StatCard label="Duration"        value={activeSession ? stats.durationSec: "—"} unit="sec" color="#68d391" />
+            <StatCard label="Active Sessions" value={activeIds.length}                           color={BRAND.gold} />
+            <StatCard label="Distance"        value={activeSession ? stats.distance    : "—"} unit="m"   color="#6c63ff" />
+            <StatCard label="Avg Speed"       value={activeSession ? stats.avgSpeed    : "—"} unit="m/s" color="#00f5c4" />
+            <StatCard label="Max Speed"       value={activeSession ? stats.maxSpeed    : "—"} unit="m/s" color="#fc8181" />
+            <StatCard label="Duration"        value={activeSession ? stats.durationSec : "—"} unit="sec" color="#68d391" />
           </div>
 
           {/* Overlay Pills */}
@@ -586,30 +602,30 @@ export default function NeuroMatrixApp() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontSize: 9, color: BRAND.muted, letterSpacing: 1.5 }}>OVERLAY:</span>
               {sessions.map((s, i) => {
-                const color = SESSION_COLORS[i % SESSION_COLORS.length];
+                const color    = SESSION_COLORS[i % SESSION_COLORS.length];
                 const isActive = activeIds.includes(s.id);
                 return (
                   <button key={s.id} onClick={() => toggleId(s.id)} style={{
-                    background: isActive ? color + "22" : "transparent",
-                    border: `1px solid ${isActive ? color + "66" : BRAND.border}`,
+                    background: isActive ? color+"22" : "transparent",
+                    border: `1px solid ${isActive ? color+"66" : BRAND.border}`,
                     color: isActive ? color : BRAND.muted,
                     borderRadius: 20, padding: "4px 10px", fontSize: 10,
                     cursor: "pointer", display: "flex", alignItems: "center", gap: 5
                   }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: isActive ? color : BRAND.dim }} />
-                    {s.name.length > 12 ? s.name.slice(0, 11) + "…" : s.name}
+                    {s.name.length > 12 ? s.name.slice(0, 11)+"…" : s.name}
                   </button>
                 );
               })}
               <button onClick={() => setActiveIds(sessions.map(s => s.id))} style={{ background: "none", border: `1px solid ${BRAND.border}`, color: BRAND.muted, borderRadius: 20, padding: "4px 10px", fontSize: 9, cursor: "pointer" }}>All</button>
-              <button onClick={() => setActiveIds([])} style={{ background: "none", border: `1px solid ${BRAND.border}`, color: BRAND.muted, borderRadius: 20, padding: "4px 10px", fontSize: 9, cursor: "pointer" }}>None</button>
+              <button onClick={() => setActiveIds([])}                       style={{ background: "none", border: `1px solid ${BRAND.border}`, color: BRAND.muted, borderRadius: 20, padding: "4px 10px", fontSize: 9, cursor: "pointer" }}>None</button>
             </div>
           )}
 
           {/* Main Grid */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 330px", gap: 16 }}>
 
-            {/* Canvas */}
+            {/* Canvas panel */}
             <div style={{ background: BRAND.surface, border: `1px solid ${BRAND.gold}22`, borderRadius: 14, overflow: "hidden" }}>
               <div style={{ display: "flex", borderBottom: `1px solid ${BRAND.gold}22` }}>
                 {["Trajectory", "Heatmap"].map(t => (
@@ -625,7 +641,7 @@ export default function NeuroMatrixApp() {
                   onClick={() => activeTab === "Trajectory"
                     ? trajRef.current && downloadCanvas(trajRef.current, "neuromatrix_trajectory.png")
                     : heatRef.current && downloadCanvas(heatRef.current, "neuromatrix_heatmap.png")}
-                  style={{ background: BRAND.gold + "11", border: `1px solid ${BRAND.gold}33`, color: BRAND.gold, margin: "7px 12px", borderRadius: 6, padding: "4px 10px", fontSize: 9, cursor: "pointer" }}>
+                  style={{ background: BRAND.gold+"11", border: `1px solid ${BRAND.gold}33`, color: BRAND.gold, margin: "7px 12px", borderRadius: 6, padding: "4px 10px", fontSize: 9, cursor: "pointer" }}>
                   ⬇ Download PNG
                 </button>
               </div>
@@ -637,24 +653,21 @@ export default function NeuroMatrixApp() {
               </div>
             </div>
 
-            {/* Right Column */}
+            {/* Right column */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-              {/* Speed */}
               <div style={{ background: BRAND.surface, border: `1px solid ${BRAND.gold}22`, borderRadius: 14, padding: 14 }}>
-                <div style={{ fontSize: 9, color: BRAND.gold + "99", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Speed Over Time</div>
+                <div style={{ fontSize: 9, color: BRAND.gold+"99", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Speed Over Time</div>
                 <SpeedGraph sessions={sessions} activeIds={activeIds} />
               </div>
 
-              {/* Distance */}
               <div style={{ background: BRAND.surface, border: `1px solid ${BRAND.gold}22`, borderRadius: 14, padding: 14 }}>
-                <div style={{ fontSize: 9, color: BRAND.gold + "99", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Distance Comparison</div>
+                <div style={{ fontSize: 9, color: BRAND.gold+"99", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Distance Comparison</div>
                 <DistanceBar sessions={sessions} activeIds={activeIds} />
               </div>
 
-              {/* Zone Distribution */}
               <div style={{ background: BRAND.surface, border: `1px solid ${BRAND.gold}22`, borderRadius: 14, padding: 14 }}>
-                <div style={{ fontSize: 9, color: BRAND.gold + "99", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>Zone Distribution</div>
+                <div style={{ fontSize: 9, color: BRAND.gold+"99", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>Zone Distribution</div>
                 {[
                   ["Center",    stats.centerPct,    BRAND.gold],
                   ["Periphery", stats.peripheryPct, "#6c63ff"],
@@ -671,31 +684,30 @@ export default function NeuroMatrixApp() {
                 ))}
               </div>
 
-              {/* Session Summary */}
               <div style={{ background: BRAND.surface, border: `1px solid ${BRAND.gold}22`, borderRadius: 14, padding: 14, flex: 1 }}>
-                <div style={{ fontSize: 9, color: BRAND.gold + "99", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Session Summary</div>
+                <div style={{ fontSize: 9, color: BRAND.gold+"99", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Session Summary</div>
                 {sessions.length === 0
                   ? <div style={{ fontSize: 10, color: BRAND.dim, textAlign: "center", padding: "16px 0" }}>No sessions loaded</div>
                   : sessions.map((s, i) => {
-                    const color = SESSION_COLORS[i % SESSION_COLORS.length];
-                    const isActive = activeIds.includes(s.id);
-                    const st = computeStats(s.positions);
-                    return (
-                      <div key={s.id} onClick={() => toggleId(s.id)} style={{
-                        padding: "7px 0", borderBottom: `1px solid ${BRAND.panel}`,
-                        cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center"
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: isActive ? color : BRAND.dim, flexShrink: 0 }} />
-                          <span style={{ fontSize: 10, color: isActive ? BRAND.text : BRAND.muted, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                      const color    = SESSION_COLORS[i % SESSION_COLORS.length];
+                      const isActive = activeIds.includes(s.id);
+                      const st       = computeStats(s.positions);
+                      return (
+                        <div key={s.id} onClick={() => toggleId(s.id)} style={{
+                          padding: "7px 0", borderBottom: `1px solid ${BRAND.panel}`,
+                          cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center"
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: isActive ? color : BRAND.dim, flexShrink: 0 }} />
+                            <span style={{ fontSize: 10, color: isActive ? BRAND.text : BRAND.muted, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <span style={{ fontSize: 9, color: BRAND.muted }}>{st.durationSec}s</span>
+                            <span style={{ fontSize: 9, color, fontFamily: "monospace" }}>{st.distance}m</span>
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <span style={{ fontSize: 9, color: BRAND.muted }}>{st.durationSec}s</span>
-                          <span style={{ fontSize: 9, color, fontFamily: "monospace" }}>{st.distance}m</span>
-                        </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })
                 }
               </div>
             </div>
