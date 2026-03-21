@@ -49,19 +49,8 @@ const FREE_LIMITS = {
 };
 
 // Demo key for testing before license server is live
-const DEMO_KEY      = "NMBT-DEMO-TEST-2026";
-const DEMO_LICENSE  = {
-  valid:    true,
-  plan:     "researcher",
-  name:     "Demo User",
-  email:    "demo@neuromatrix.com",
-  features: [
-    "mwm_full","ymaze","oft","heatmap",
-    "png_export","probe_trial","learning_curve",
-    "trajectory","csv_export",
-  ],
-  seats: 1,
-};
+const DEMO_KEY     = ""; // disabled
+const DEMO_LICENSE = null;
 
 // ─── LICENSE HOOK ─────────────────────────────────────────────────────────────
 function useLicense() {
