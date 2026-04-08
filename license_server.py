@@ -36,9 +36,9 @@ log = logging.getLogger(__name__)
 PAYSTACK_SECRET      = os.environ.get("PAYSTACK_SECRET_KEY", "sk_test_REPLACE")
 EMAIL_HOST           = os.environ.get("EMAIL_HOST",           "smtp.gmail.com")
 EMAIL_PORT           = int(os.environ.get("EMAIL_PORT",       "587"))
-EMAIL_USER           = os.environ.get("EMAIL_USER",           "neuromatrixbiosystems@gmail.com")
+EMAIL_USER           = os.environ.get("EMAIL_USER",           "neuromatrixbiosystem@gmail.com")
 EMAIL_PASS           = os.environ.get("EMAIL_PASS",           "your_app_password")
-ADMIN_EMAIL          = os.environ.get("ADMIN_EMAIL",          "neuromatrixbiosystems@gmail.com")
+ADMIN_EMAIL          = os.environ.get("ADMIN_EMAIL",          "neuromatrixbiosystem@gmail.com")
 DOWNLOAD_URL         = os.environ.get("DOWNLOAD_URL",         "https://your-download-link.com/neurotrack-setup.exe")
 ADMIN_SECRET         = os.environ.get("ADMIN_SECRET",         "change-this-secret")
 
@@ -169,6 +169,69 @@ def send_license_email(email: str, name: str, plan: str, license_key: str):
         log.error(f"[Email] Failed: {e}")
         return False
 
+def send_demo_email(email, name, institution, license_key, duration_days, expires_at):
+    """Send demo license email with expiry info to student"""
+    expiry_date = datetime.fromisoformat(expires_at).strftime("%B %d, %Y")
+    subject     = f"🧠 NeuroTrack Pro — {duration_days}-Day Demo License"
+    html = f"""
+<!DOCTYPE html>
+<html>
+<body style="background:#070b16;color:#e2e8f0;font-family:'Courier New',monospace;padding:40px;max-width:600px;margin:0 auto;">
+  <div style="text-align:center;margin-bottom:32px;">
+    <h1 style="color:#c9a84c;font-size:20px;letter-spacing:0.15em;">NEUROMATRIX BIOSYSTEMS</h1>
+    <p style="color:#4a5568;font-size:10px;letter-spacing:0.3em;">STUDENT DEMO LICENSE</p>
+  </div>
+  <div style="background:#0d1428;border:1px solid #1e2a4a;border-radius:12px;padding:32px;margin-bottom:24px;">
+    <p style="font-size:12px;color:#e2e8f0;margin-bottom:20px;">
+      Dear {name}, your <strong style="color:#c9a84c;">{duration_days}-day demo license</strong>
+      for NeuroTrack Pro has been issued by your instructor at
+      <strong style="color:#e2e8f0;">{institution}</strong>.
+    </p>
+    <div style="background:#070b16;border:2px solid #c9a84c66;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px;">
+      <p style="color:#4a5568;font-size:9px;letter-spacing:0.2em;margin-bottom:8px;">YOUR LICENSE KEY</p>
+      <p style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:0.15em;">{license_key}</p>
+      <p style="color:#ff6b6b;font-size:10px;margin-top:8px;">⏰ Expires: {expiry_date}</p>
+    </div>
+    <div style="background:#ff6b6b11;border:1px solid #ff6b6b33;border-radius:8px;padding:14px;margin-bottom:20px;">
+      <p style="color:#ff6b6b;font-size:10px;line-height:1.7;margin:0;">
+        ⚠️ Demo license — expires <strong>{expiry_date}</strong>.
+        After expiry, purchase at neuromatrixbiosystems.com/pricing
+      </p>
+    </div>
+    <p style="color:#c9a84c;font-size:11px;margin-bottom:8px;font-weight:700;">HOW TO ACTIVATE:</p>
+    <ol style="color:#4a5568;font-size:11px;line-height:2;padding-left:20px;">
+      <li>Go to neuromatrixbiosystems.com/pricing</li>
+      <li>Scroll to "Already have a license?"</li>
+      <li>Enter key → click Verify</li>
+      <li>Access web app or download desktop .exe</li>
+    </ol>
+    <p style="color:#c9a84c;font-size:11px;margin:16px 0 8px;font-weight:700;">INCLUDES — Full Access:</p>
+    <p style="color:#00f5c4;font-size:11px;line-height:2;">
+      ✓ MWM full analysis &nbsp; ✓ Y-Maze &nbsp; ✓ Open Field Test<br/>
+      ✓ Heatmap &nbsp; ✓ PNG + CSV export &nbsp; ✓ Web + Desktop
+    </p>
+  </div>
+  <p style="text-align:center;color:#2d3748;font-size:9px;">
+    © 2026 NeuroMatrix Biosystems · University of Ilorin
+  </p>
+</body>
+</html>"""
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = EMAIL_USER
+        msg["To"]      = email
+        msg.attach(MIMEText(html, "html"))
+        with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASS)
+            server.sendmail(EMAIL_USER, [email, ADMIN_EMAIL], msg.as_string())
+        log.info(f"[Demo Email] Sent to {email}")
+        return True
+    except Exception as e:
+        log.error(f"[Demo Email] Failed: {e}")
+        return False
+
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -273,6 +336,23 @@ def verify_license():
     if not license.get("active"):
         return jsonify({"valid": False, "error": "License deactivated"}), 403
 
+    # ── Check expiry for demo/student licenses ──
+    expires_at = license.get("expires_at")
+    if expires_at:
+        expiry = datetime.fromisoformat(expires_at)
+        if datetime.utcnow() > expiry:
+            license["active"] = False
+            days_expired = (datetime.utcnow() - expiry).days
+            return jsonify({
+                "valid": False,
+                "error": f"Demo license expired {days_expired} day(s) ago. Purchase a full license at neuromatrixbiosystems.com/pricing",
+                "expired": True,
+            }), 403
+
+        # Include days remaining in response
+        days_left = (expiry - datetime.utcnow()).days
+        license["days_remaining"] = days_left
+
     # Track activation
     ip = request.remote_addr
     if ip not in license["activations"]:
@@ -284,12 +364,15 @@ def verify_license():
         license["activations"].append(ip)
 
     return jsonify({
-        "valid":    True,
-        "plan":     license["plan"],
-        "features": license["features"],
-        "seats":    license["seats"],
-        "name":     license["name"],
-        "email":    license["email"],
+        "valid":         True,
+        "plan":          license["plan"],
+        "features":      license["features"],
+        "seats":         license["seats"],
+        "name":          license["name"],
+        "email":         license["email"],
+        "expires_at":    license.get("expires_at"),
+        "days_remaining":license.get("days_remaining"),
+        "is_demo":       license.get("is_demo", False),
     }), 200
 
 # ── Download .exe ─────────────────────────────────────────────────────────────
@@ -368,6 +451,120 @@ def admin_generate():
     return jsonify({
         "license_key": license_key,
         "email_sent":  email_sent,
+        "plan":        plan,
+    }), 200
+
+@app.route("/admin/demo", methods=["POST"])
+@require_admin
+def admin_demo():
+    """Generate time-limited demo license for students"""
+    data         = request.get_json()
+    email        = data.get("email")
+    name         = data.get("name", "Student")
+    institution  = data.get("institution", "University of Ilorin")
+    duration_days= int(data.get("duration_days", 30))  # default 30 days
+
+    if not email:
+        return jsonify({"error": "Email required"}), 400
+
+    # Cap at 90 days max
+    duration_days = min(duration_days, 90)
+
+    license_key = generate_license_key("student")
+    while license_key in LICENSE_DB:
+        license_key = generate_license_key("student")
+
+    expires_at = (datetime.utcnow() + timedelta(days=duration_days)).isoformat()
+
+    LICENSE_DB[license_key] = {
+        "key":          license_key,
+        "email":        email,
+        "name":         name,
+        "institution":  institution,
+        "plan":         "student_demo",
+        "features":     [
+            "mwm_full", "ymaze", "oft", "heatmap",
+            "png_export", "probe_trial", "learning_curve",
+            "trajectory", "csv_export",
+        ],
+        "seats":        1,
+        "created_at":   datetime.utcnow().isoformat(),
+        "expires_at":   expires_at,
+        "duration_days":duration_days,
+        "ref":          "DEMO-" + secrets.token_hex(4).upper(),
+        "active":       True,
+        "activations":  [],
+        "is_demo":      True,
+    }
+
+    # Send email with expiry info
+    send_demo_email(email, name, institution, license_key, duration_days, expires_at)
+
+    log.info(f"[Demo] Generated {license_key} for {email} — expires {expires_at}")
+
+    return jsonify({
+        "license_key":   license_key,
+        "email":         email,
+        "expires_at":    expires_at,
+        "duration_days": duration_days,
+        "plan":          "student_demo",
+    }), 200
+
+@app.route("/admin/demo/bulk", methods=["POST"])
+@require_admin
+def admin_demo_bulk():
+    """Generate demo licenses for multiple students at once"""
+    data         = request.get_json()
+    students     = data.get("students", [])  # list of {email, name}
+    institution  = data.get("institution", "University of Ilorin")
+    duration_days= int(data.get("duration_days", 30))
+    duration_days= min(duration_days, 90)
+
+    if not students:
+        return jsonify({"error": "No students provided"}), 400
+
+    results = []
+    for student in students:
+        email = student.get("email")
+        name  = student.get("name", "Student")
+        if not email:
+            continue
+
+        license_key = generate_license_key("student")
+        while license_key in LICENSE_DB:
+            license_key = generate_license_key("student")
+
+        expires_at = (datetime.utcnow() + timedelta(days=duration_days)).isoformat()
+
+        LICENSE_DB[license_key] = {
+            "key":          license_key,
+            "email":        email,
+            "name":         name,
+            "institution":  institution,
+            "plan":         "student_demo",
+            "features":     [
+                "mwm_full","ymaze","oft","heatmap",
+                "png_export","probe_trial","learning_curve",
+                "trajectory","csv_export",
+            ],
+            "seats":        1,
+            "created_at":   datetime.utcnow().isoformat(),
+            "expires_at":   expires_at,
+            "duration_days":duration_days,
+            "ref":          "DEMO-" + secrets.token_hex(4).upper(),
+            "active":       True,
+            "activations":  [],
+            "is_demo":      True,
+        }
+
+        send_demo_email(email, name, institution, license_key, duration_days, expires_at)
+        results.append({"email": email, "license_key": license_key, "expires_at": expires_at})
+        log.info(f"[Demo Bulk] {license_key} → {email}")
+
+    return jsonify({
+        "generated": len(results),
+        "licenses":  results,
+    }), 200
         "plan":        plan,
     }), 200
 
