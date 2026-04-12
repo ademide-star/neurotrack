@@ -29,7 +29,7 @@ const API = window.electronAPI
 const SESSION_COLORS = ["#c9a84c","#6c63ff","#00f5c4","#ff6b6b","#63b3ed","#fc8181","#68d391","#f687b3"];
 
 // ─── LICENSE CONFIG ───────────────────────────────────────────────────────────
-const LICENSE_API = "https://neuromatrix-license.onrender.com"; // update after deploy
+const LICENSE_API = "https://your-license-server.onrender.com"; // update after deploy
 
 const FREE_FEATURES = [
   "mwm_basic",
@@ -49,8 +49,19 @@ const FREE_LIMITS = {
 };
 
 // Demo key for testing before license server is live
-const DEMO_KEY     = ""; // disabled
-const DEMO_LICENSE = null;
+const DEMO_KEY      = "NMBT-DEMO-TEST-2026";
+const DEMO_LICENSE  = {
+  valid:    true,
+  plan:     "researcher",
+  name:     "Demo User",
+  email:    "demo@neuromatrix.com",
+  features: [
+    "mwm_full","ymaze","oft","heatmap",
+    "png_export","probe_trial","learning_curve",
+    "trajectory","csv_export",
+  ],
+  seats: 1,
+};
 
 // ─── LICENSE HOOK ─────────────────────────────────────────────────────────────
 function useLicense() {
@@ -213,17 +224,52 @@ function LicenseBadge({ license, onActivate }) {
     institution: "#00f5c4",
   };
 
+  // ── Countdown for demo licenses ──
+  const [daysLeft, setDaysLeft] = useState(null);
+
+  useEffect(() => {
+    if (license?.valid && license?.expires_at) {
+      const calc = () => {
+        const ms   = new Date(license.expires_at) - new Date();
+        const days = Math.max(0, Math.ceil(ms / 86400000));
+        setDaysLeft(days);
+      };
+      calc();
+      const t = setInterval(calc, 60000); // update every minute
+      return () => clearInterval(t);
+    }
+  }, [license]);
+
   if (license?.valid) {
+    const color     = PLAN_COLORS[license.plan] || BRAND.gold;
+    const isDemo    = license.is_demo || license.plan === 'student_demo';
+    const isExpiring = daysLeft !== null && daysLeft <= 7;
+    const expiryColor = daysLeft === 0 ? BRAND.red : daysLeft <= 3 ? "#ff9944" : daysLeft <= 7 ? BRAND.gold : BRAND.green;
+
     return (
-      <div style={{
-        display:"flex", alignItems:"center", gap:6,
-        background: PLAN_COLORS[license.plan]+"22",
-        border:`1px solid ${PLAN_COLORS[license.plan]}44`,
-        borderRadius:20, padding:"3px 12px",
-        fontSize:9, letterSpacing:"0.08em",
-        color: PLAN_COLORS[license.plan],
-      }}>
-        ✓ {license.plan?.toUpperCase()} LICENSE
+      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        {/* Plan badge */}
+        <div style={{
+          display:"flex", alignItems:"center", gap:6,
+          background: color+"22", border:`1px solid ${color}44`,
+          borderRadius:20, padding:"3px 12px",
+          fontSize:9, letterSpacing:"0.08em", color,
+        }}>
+          ✓ {isDemo ? "DEMO" : license.plan?.toUpperCase()} LICENSE
+        </div>
+        {/* Countdown badge for demo */}
+        {isDemo && daysLeft !== null && (
+          <div style={{
+            display:"flex", alignItems:"center", gap:4,
+            background: expiryColor+"22",
+            border:`1px solid ${expiryColor}44`,
+            borderRadius:20, padding:"3px 10px",
+            fontSize:9, color: expiryColor,
+            animation: isExpiring ? "pulse 2s infinite" : "none",
+          }}>
+            ⏰ {daysLeft === 0 ? "Expires today!" : `${daysLeft}d left`}
+          </div>
+        )}
       </div>
     );
   }
