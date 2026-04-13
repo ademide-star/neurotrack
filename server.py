@@ -422,13 +422,6 @@ def process_auto():
     finally:
         if os.path.exists(temp): os.remove(temp)
 
-# ─── RUN ──────────────────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
-
 # ─── NOR (Novel Object Recognition) ─────────────────────────────────────────
 
 @app.route("/process/nor", methods=["POST"])
@@ -517,3 +510,11 @@ def process_nor():
         return jsonify({"error": str(e)}), 500
     finally:
         if os.path.exists(temp): os.remove(temp)
+
+# ─── RUN ──────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
+
