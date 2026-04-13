@@ -23,11 +23,27 @@ from email.mime.multipart import MIMEMultipart
 from functools import wraps
 
 from flask import Flask, request, jsonify, send_file, abort
-from flask_cors import CORS
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
-CORS(app, origins=["*"])
+
+@app.before_request
+def handle_preflight():
+    """Intercept OPTIONS requests before any auth check"""
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers.set('Access-Control-Allow-Origin', '*')
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type,X-Admin-Secret,Authorization')
+        response.headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+        response.headers.set('Access-Control-Max-Age', '3600')
+        return response
+
+@app.after_request
+def after_request(response):
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type,X-Admin-Secret,Authorization')
+    response.headers.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    return response
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -41,10 +57,75 @@ EMAIL_PASS           = os.environ.get("EMAIL_PASS",           "your_app_password
 ADMIN_EMAIL          = os.environ.get("ADMIN_EMAIL",          "neuromatrixbiosystem@gmail.com")
 DOWNLOAD_URL         = os.environ.get("DOWNLOAD_URL",         "https://your-download-link.com/neurotrack-setup.exe")
 ADMIN_SECRET         = os.environ.get("ADMIN_SECRET",         "change-this-secret")
+SUPABASE_URL         = os.environ.get("SUPABASE_URL",         "")
+SUPABASE_KEY         = os.environ.get("SUPABASE_KEY",         "")
 
-# ── In-memory license store (replace with DB on production) ───────────────────
-# Structure: { "NMBT-XXXX-XXXX-XXXX": { ...license data... } }
+# ── License store — loads from Supabase if configured, else in-memory ─────────
 LICENSE_DB = {}
+
+def db_save(license_key, data):
+    """Save license to Supabase if configured"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return  # in-memory only
+    try:
+        import urllib.request
+        payload = json.dumps({
+            "key":           data["key"],
+            "email":         data["email"],
+            "name":          data.get("name", ""),
+            "institution":   data.get("institution", ""),
+            "plan":          data["plan"],
+            "features":      json.dumps(data["features"]),
+            "seats":         data["seats"],
+            "created_at":    data["created_at"],
+            "expires_at":    data.get("expires_at"),
+            "ref":           data.get("ref", ""),
+            "active":        data["active"],
+            "is_demo":       data.get("is_demo", False),
+            "duration_days": data.get("duration_days"),
+        }).encode()
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/licenses",
+            data=payload,
+            headers={
+                "Content-Type":  "application/json",
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Prefer":        "resolution=merge-duplicates",
+            },
+            method="POST"
+        )
+        urllib.request.urlopen(req, timeout=5)
+        log.info(f"[DB] Saved {license_key}")
+    except Exception as e:
+        log.error(f"[DB] Save failed: {e}")
+
+def db_load_all():
+    """Load all licenses from Supabase on startup"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/licenses?select=*",
+            headers={
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+            }
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            rows = json.loads(resp.read())
+            for row in rows:
+                key = row["key"]
+                if isinstance(row.get("features"), str):
+                    try: row["features"] = json.loads(row["features"])
+                    except: row["features"] = []
+                if "activations" not in row:
+                    row["activations"] = []
+                LICENSE_DB[key] = row
+            log.info(f"[DB] Loaded {len(rows)} licenses from Supabase")
+    except Exception as e:
+        log.error(f"[DB] Load failed: {e}")
 
 # ── Plan definitions ──────────────────────────────────────────────────────────
 PLANS = {
@@ -152,6 +233,10 @@ def send_license_email(email: str, name: str, plan: str, license_key: str):
 </html>
 """
     try:
+        if EMAIL_PASS == "your_app_password" or not EMAIL_PASS:
+            log.warning(f"[Email] EMAIL_PASS not configured — skipping email to {email}")
+            return False
+
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"]    = EMAIL_USER
@@ -159,14 +244,19 @@ def send_license_email(email: str, name: str, plan: str, license_key: str):
         msg.attach(MIMEText(html, "html"))
 
         with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
+            server.ehlo()
             server.starttls()
+            server.ehlo()
             server.login(EMAIL_USER, EMAIL_PASS)
             server.sendmail(EMAIL_USER, [email, ADMIN_EMAIL], msg.as_string())
 
-        log.info(f"[Email] Sent license to {email}")
+        log.info(f"[Email] ✅ Sent license to {email}")
         return True
+    except smtplib.SMTPAuthenticationError as e:
+        log.error(f"[Email] ❌ Gmail auth failed — check EMAIL_PASS in Render env: {e}")
+        return False
     except Exception as e:
-        log.error(f"[Email] Failed: {e}")
+        log.error(f"[Email] ❌ Failed to send to {email}: {e}")
         return False
 
 def send_demo_email(email, name, institution, license_key, duration_days, expires_at):
@@ -242,6 +332,20 @@ def health():
         "version": "1.0.0",
         "licenses_issued": len(LICENSE_DB),
     })
+
+# Load licenses from Supabase on first request
+_db_loaded = False
+@app.before_request
+def load_db_once():
+    global _db_loaded
+    if not _db_loaded:
+        db_load_all()
+        _db_loaded = True
+
+@app.route("/admin")
+def admin_panel():
+    """Serve admin dashboard"""
+    return send_file("admin.html")
 
 # ── Paystack webhook ──────────────────────────────────────────────────────────
 
@@ -458,77 +562,20 @@ def admin_generate():
 @require_admin
 def admin_demo():
     """Generate time-limited demo license for students"""
-    data         = request.get_json()
-    email        = data.get("email")
-    name         = data.get("name", "Student")
-    institution  = data.get("institution", "University of Ilorin")
-    duration_days= int(data.get("duration_days", 30))  # default 30 days
+    try:
+        data         = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data received"}), 400
 
-    if not email:
-        return jsonify({"error": "Email required"}), 400
+        email        = data.get("email", "").strip()
+        name         = data.get("name", "Student").strip()
+        institution  = data.get("institution", "University of Ilorin").strip()
+        duration_days= int(data.get("duration_days", 30))
 
-    # Cap at 90 days max
-    duration_days = min(duration_days, 90)
-
-    license_key = generate_license_key("student")
-    while license_key in LICENSE_DB:
-        license_key = generate_license_key("student")
-
-    expires_at = (datetime.utcnow() + timedelta(days=duration_days)).isoformat()
-
-    LICENSE_DB[license_key] = {
-        "key":          license_key,
-        "email":        email,
-        "name":         name,
-        "institution":  institution,
-        "plan":         "student_demo",
-        "features":     [
-            "mwm_full", "ymaze", "oft", "heatmap",
-            "png_export", "probe_trial", "learning_curve",
-            "trajectory", "csv_export",
-        ],
-        "seats":        1,
-        "created_at":   datetime.utcnow().isoformat(),
-        "expires_at":   expires_at,
-        "duration_days":duration_days,
-        "ref":          "DEMO-" + secrets.token_hex(4).upper(),
-        "active":       True,
-        "activations":  [],
-        "is_demo":      True,
-    }
-
-    # Send email with expiry info
-    send_demo_email(email, name, institution, license_key, duration_days, expires_at)
-
-    log.info(f"[Demo] Generated {license_key} for {email} — expires {expires_at}")
-
-    return jsonify({
-        "license_key":   license_key,
-        "email":         email,
-        "expires_at":    expires_at,
-        "duration_days": duration_days,
-        "plan":          "student_demo",
-    }), 200
-
-@app.route("/admin/demo/bulk", methods=["POST"])
-@require_admin
-def admin_demo_bulk():
-    """Generate demo licenses for multiple students at once"""
-    data         = request.get_json()
-    students     = data.get("students", [])  # list of {email, name}
-    institution  = data.get("institution", "University of Ilorin")
-    duration_days= int(data.get("duration_days", 30))
-    duration_days= min(duration_days, 90)
-
-    if not students:
-        return jsonify({"error": "No students provided"}), 400
-
-    results = []
-    for student in students:
-        email = student.get("email")
-        name  = student.get("name", "Student")
         if not email:
-            continue
+            return jsonify({"error": "Email required"}), 400
+
+        duration_days = min(max(duration_days, 1), 90)
 
         license_key = generate_license_key("student")
         while license_key in LICENSE_DB:
@@ -543,9 +590,9 @@ def admin_demo_bulk():
             "institution":  institution,
             "plan":         "student_demo",
             "features":     [
-                "mwm_full","ymaze","oft","heatmap",
-                "png_export","probe_trial","learning_curve",
-                "trajectory","csv_export",
+                "mwm_full", "ymaze", "oft", "heatmap",
+                "png_export", "probe_trial", "learning_curve",
+                "trajectory", "csv_export",
             ],
             "seats":        1,
             "created_at":   datetime.utcnow().isoformat(),
@@ -557,16 +604,109 @@ def admin_demo_bulk():
             "is_demo":      True,
         }
 
-        send_demo_email(email, name, institution, license_key, duration_days, expires_at)
-        results.append({"email": email, "license_key": license_key, "expires_at": expires_at})
-        log.info(f"[Demo Bulk] {license_key} → {email}")
+        log.info(f"[Demo] Generated {license_key} for {email} — expires {expires_at}")
 
-    return jsonify({
-        "generated": len(results),
-        "licenses":  results,
-    }), 200
-        "plan":        plan,
-    }), 200
+        # Save to Supabase
+        db_save(license_key, LICENSE_DB[license_key])
+
+        # Try email — don't crash if it fails
+        email_sent = False
+        try:
+            email_sent = send_demo_email(email, name, institution, license_key, duration_days, expires_at)
+        except Exception as e:
+            log.error(f"[Demo Email] Failed: {e}")
+
+        return jsonify({
+            "license_key":   license_key,
+            "email":         email,
+            "expires_at":    expires_at,
+            "duration_days": duration_days,
+            "plan":          "student_demo",
+            "email_sent":    email_sent,
+        }), 200
+
+    except Exception as e:
+        log.error(f"[Demo] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/admin/demo/bulk", methods=["POST"])
+@require_admin
+def admin_demo_bulk():
+    """Generate demo licenses for multiple students at once"""
+    try:
+        data         = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data received"}), 400
+
+        students     = data.get("students", [])
+        institution  = data.get("institution", "University of Ilorin")
+        duration_days= int(data.get("duration_days", 30))
+        duration_days= min(max(duration_days, 1), 90)
+
+        if not students:
+            return jsonify({"error": "No students provided"}), 400
+
+        results = []
+        for student in students:
+            email = student.get("email", "").strip()
+            name  = student.get("name", "Student").strip()
+            if not email:
+                continue
+
+            try:
+                license_key = generate_license_key("student")
+                while license_key in LICENSE_DB:
+                    license_key = generate_license_key("student")
+
+                expires_at = (datetime.utcnow() + timedelta(days=duration_days)).isoformat()
+
+                LICENSE_DB[license_key] = {
+                    "key":          license_key,
+                    "email":        email,
+                    "name":         name,
+                    "institution":  institution,
+                    "plan":         "student_demo",
+                    "features":     [
+                        "mwm_full","ymaze","oft","heatmap",
+                        "png_export","probe_trial","learning_curve",
+                        "trajectory","csv_export",
+                    ],
+                    "seats":        1,
+                    "created_at":   datetime.utcnow().isoformat(),
+                    "expires_at":   expires_at,
+                    "duration_days":duration_days,
+                    "ref":          "DEMO-" + secrets.token_hex(4).upper(),
+                    "active":       True,
+                    "activations":  [],
+                    "is_demo":      True,
+                }
+
+                # Try email — don't crash if it fails
+                try:
+                    send_demo_email(email, name, institution, license_key, duration_days, expires_at)
+                except Exception as e:
+                    log.error(f"[Bulk Email] Failed for {email}: {e}")
+
+                results.append({
+                    "email":       email,
+                    "name":        name,
+                    "license_key": license_key,
+                    "expires_at":  expires_at,
+                })
+                log.info(f"[Demo Bulk] {license_key} → {email}")
+
+            except Exception as e:
+                log.error(f"[Bulk] Failed for {email}: {e}")
+                continue
+
+        return jsonify({
+            "generated": len(results),
+            "licenses":  results,
+        }), 200
+
+    except Exception as e:
+        log.error(f"[Bulk] Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/admin/revoke", methods=["POST"])
 @require_admin
@@ -588,22 +728,24 @@ def stats():
         p = lic["plan"]
         plans_count[p] = plans_count.get(p, 0) + 1
 
-    revenue = sum(
+    revenue_ngn = sum(
         PLANS[lic["plan"]]["ngn"]
         for lic in LICENSE_DB.values()
-        if lic.get("active")
+        if lic.get("active") and lic["plan"] in PLANS
+    )
+
+    revenue_usd = sum(
+        PLANS[lic["plan"]]["usd"]
+        for lic in LICENSE_DB.values()
+        if lic.get("active") and lic["plan"] in PLANS
     )
 
     return jsonify({
-        "total_licenses": len(LICENSE_DB),
-        "active":         sum(1 for l in LICENSE_DB.values() if l.get("active")),
-        "by_plan":        plans_count,
-        "total_revenue_ngn": revenue,
-        "total_revenue_usd": sum(
-            PLANS[lic["plan"]]["usd"]
-            for lic in LICENSE_DB.values()
-            if lic.get("active")
-        ),
+        "total_licenses":    len(LICENSE_DB),
+        "active":            sum(1 for l in LICENSE_DB.values() if l.get("active")),
+        "by_plan":           plans_count,
+        "total_revenue_ngn": revenue_ngn,
+        "total_revenue_usd": revenue_usd,
     }), 200
 
 # ── Run ───────────────────────────────────────────────────────────────────────
