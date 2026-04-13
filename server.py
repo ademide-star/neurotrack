@@ -513,8 +513,34 @@ def process_nor():
 
 # ─── RUN ──────────────────────────────────────────────────────────────────────
 
+# ─── SERVE REACT FRONTEND ─────────────────────────────────────────────────────
+
+import os
+from flask import send_from_directory
+
+# Check if we're in production (Render)
+IS_PRODUCTION = os.environ.get('RENDER', False)
+
+if IS_PRODUCTION:
+    # Serve React static files
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve(path):
+        if path and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+        return send_from_directory(app.static_folder, 'index.html')
+    
+    # Set static folder to React build directory
+    app.static_folder = 'build'
+
+# ─── RUN ──────────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    
+    if IS_PRODUCTION:
+        print(f"[Server] NeuroTrack starting in PRODUCTION mode on port {port}")
+    else:
+        print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
+        app.run(host="0.0.0.0", port=port, debug=True)
 
