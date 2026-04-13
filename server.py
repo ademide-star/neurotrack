@@ -428,3 +428,92 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
+# ─── NOR (Novel Object Recognition) ─────────────────────────────────────────
+
+@app.route("/process/nor", methods=["POST"])
+def process_nor():
+    if "video" not in request.files:
+        return jsonify({"error": "No video file received"}), 400
+    temp = save_temp(request.files["video"], "temp_nor.mp4")
+    try:
+        cap  = open_video(temp)
+        if not cap:
+            return jsonify({"error": "Cannot open video"}), 400
+        info = get_video_info(cap)
+        fps  = info["fps"]
+        W, H = info["width"], info["height"]
+
+        # Object A (familiar) — left side circle zone
+        obj_a = {"cx": int(W * 0.25), "cy": int(H * 0.5), "r": int(min(W,H) * 0.12)}
+        # Object B (novel) — right side square zone
+        obj_b = {"x1": int(W * 0.65), "y1": int(H * 0.35), "x2": int(W * 0.85), "y2": int(H * 0.65)}
+
+        positions        = []
+        novel_frames     = 0
+        familiar_frames  = 0
+        other_frames     = 0
+        frame_count      = 0
+
+        while True:
+            ret, frame = cap.read()
+            if not ret: break
+            frame_count += 1
+            if frame_count % 2 != 0: continue
+            result = detect_subject(frame)
+            if not result: continue
+            rx, ry, _ = result
+            positions.append(normalize_pos(rx, ry, W, H))
+
+            # Check proximity to object A (familiar — circle)
+            dist_a = np.sqrt((rx - obj_a["cx"])**2 + (ry - obj_a["cy"])**2)
+            in_a   = dist_a < obj_a["r"] * 2
+
+            # Check proximity to object B (novel — rectangle)
+            in_b = (obj_b["x1"] - 40 < rx < obj_b["x2"] + 40 and
+                    obj_b["y1"] - 40 < ry < obj_b["y2"] + 40)
+
+            if in_b:
+                novel_frames += 1
+            elif in_a:
+                familiar_frames += 1
+            else:
+                other_frames += 1
+
+        cap.release()
+        total    = len(positions) or 1
+        duration = total / fps if fps > 0 else 0
+        fps_safe = fps if fps > 0 else 30
+
+        novel_time    = round(novel_frames    / fps_safe, 2)
+        familiar_time = round(familiar_frames / fps_safe, 2)
+        total_expl    = round((novel_frames + familiar_frames) / fps_safe, 2)
+
+        # Discrimination Index
+        expl_total = novel_frames + familiar_frames
+        di = round(((novel_frames - familiar_frames) / expl_total) * 100, 1) if expl_total > 0 else 0
+
+        # Recognition Index
+        ri = round((novel_frames / expl_total) * 100, 1) if expl_total > 0 else 0
+
+        return jsonify({
+            "positions":         positions,
+            "total_frames":      total,
+            "duration_sec":      round(duration, 2),
+            "novel_time":        novel_time,
+            "familiar_time":     familiar_time,
+            "total_exploration": total_expl,
+            "novel_pct":         round(novel_frames / total * 100, 1),
+            "familiar_pct":      round(familiar_frames / total * 100, 1),
+            "di":                di,
+            "ri":                ri,
+            "memory_status":     "Intact" if di >= 20 else ("Borderline" if di >= 0 else "Impaired"),
+            "arena_type":        "nor",
+            "status":            "success",
+        })
+    except Exception as e:
+        import traceback
+        print(f"[NOR] ERROR: {traceback.format_exc()}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(temp): os.remove(temp)
