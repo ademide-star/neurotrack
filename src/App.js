@@ -710,266 +710,29 @@ export default function NeuroMatrixApp() {
     button:hover{opacity:0.8;}
   `;
 
-  const NAV_PAGES=[
-    {id:"mwm",        label:"🏊 MWM Tracker"},
-    {id:"behavioral", label:`🧪 Behavioral Suite${!features.includes("mwm_full")?" 🔒":""}`},
-  ];
-
-  // ── SHARED HEADER ──
-  const sharedHeader=(
-    <header style={{background:`linear-gradient(90deg,${BRAND.bg} 0%,${BRAND.surface} 50%,${BRAND.bg} 100%)`,borderBottom:`1px solid ${BRAND.gold}33`,padding:"0 24px",height:58,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:`0 1px 20px ${BRAND.gold}11`}}>
-      {/* Logo */}
-      <div style={{display:"flex",alignItems:"center",gap:12}}>
-        <img src="/logo.png" alt="NeuroMatrix" style={{height:40,width:40,objectFit:"contain",borderRadius:8}} onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}/>
-        <div style={{display:"none",width:40,height:40,borderRadius:8,background:`linear-gradient(135deg,${BRAND.gold}44,${BRAND.gold}22)`,border:`1px solid ${BRAND.gold}44`,alignItems:"center",justifyContent:"center",fontSize:18}}>🧠</div>
-        <div style={{display:"flex",flexDirection:"column",gap:1}}>
-          <span style={{fontSize:14,fontWeight:700,letterSpacing:2,color:BRAND.gold}}>NEURO<span style={{color:BRAND.text}}>MATRIX</span></span>
-          <span style={{fontSize:7,color:BRAND.muted,letterSpacing:4,textTransform:"uppercase"}}>Biosystems</span>
-        </div>
-        <div style={{width:1,height:28,background:BRAND.border,margin:"0 4px"}}/>
-        <span style={{fontSize:9,color:BRAND.muted,letterSpacing:1}}>NeuroTrack Pro</span>
-      </div>
-
-      {/* Page nav */}
-      <div style={{display:"flex",gap:"4px",background:BRAND.surface,padding:"4px",borderRadius:"10px",border:`1px solid ${BRAND.border}`}}>
-        {NAV_PAGES.map(p=>(
-          <button key={p.id} onClick={()=>{
-            if(p.id==="behavioral"&&!features.includes("mwm_full")){
-              window.open("https://neuromatrixbiosystems.com/pricing","_blank"); return;
-            }
-            setPage(p.id);
-          }} style={{padding:"6px 18px",borderRadius:"7px",border:"none",cursor:"pointer",fontSize:"11px",fontFamily:"inherit",fontWeight:"700",letterSpacing:"0.05em",transition:"all 0.2s",background:page===p.id?BRAND.gold:"transparent",color:page===p.id?BRAND.bg:BRAND.muted}}>
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Actions */}
-      {page==="mwm"?(
-        <div style={{display:"flex",gap:6}}>
-          {[
-            ["▶ ANIMATE",    ()=>setAnimating(a=>!a),                                                                        animating?"#ff6b6b":BRAND.gold],
-            ["⬇ TRAJECTORY", ()=>downloadCanvasWithLicense(trajRef,"neuromatrix_trajectory.png",license),                   "#6c63ff"],
-            ["⬇ HEATMAP",    ()=>features.includes("heatmap")&&downloadCanvasWithLicense(heatRef,"neuromatrix_heatmap.png",license), "#00f5c4"],
-            ["⬇ CSV",        exportCSV,                                                                                      "#68d391"],
-          ].map(([label,fn,color])=>(
-            <button key={label} onClick={fn} style={{background:color+"15",border:`1px solid ${color}44`,color,padding:"5px 12px",borderRadius:6,cursor:"pointer",fontSize:9,letterSpacing:1}}>{label}</button>
-          ))}
-        </div>
-      ):<div/>}
-
-      {/* Status + License Badge */}
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <LicenseBadge license={license} onActivate={activateLicense}/>
-        {processing&&<span style={{fontSize:9,color:BRAND.gold,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>⏳ {processingName}</span>}
-        {queue.length>0&&<span style={{fontSize:9,color:"#6c63ff"}}>{queue.length} queued</span>}
-        <span style={{background:processing?BRAND.gold+"22":BRAND.gold+"11",border:`1px solid ${processing?BRAND.gold+"66":BRAND.gold+"33"}`,color:BRAND.gold,borderRadius:20,padding:"3px 10px",fontSize:9,letterSpacing:1}}>
-          {processing?"PROCESSING":"READY"}
-        </span>
-      </div>
-    </header>
-  );
-
-  // ── BEHAVIORAL SUITE PAGE ──
-  if(page==="behavioral"){
-    return(
-      <div style={{minHeight:"100vh",background:BRAND.bg,fontFamily:"'Space Mono','Courier New',monospace",color:BRAND.text,display:"flex",flexDirection:"column"}}>
-        <style>{GLOBAL_STYLE}</style>
-        {sharedHeader}
-        <FreeTierBanner license={license}/>
-        <BehavioralSuite/>
-      </div>
-    );
-  }
-
-  // ── MWM PAGE ──
+  // ── RENDER — BehavioralSuite is now the main app ──
   return(
     <div style={{minHeight:"100vh",background:BRAND.bg,fontFamily:"'Space Mono','Courier New',monospace",color:BRAND.text,display:"flex",flexDirection:"column"}}>
       <style>{GLOBAL_STYLE}</style>
-      {sharedHeader}
+
+      {/* Minimal header with just logo + license badge */}
+      <header style={{background:`linear-gradient(90deg,${BRAND.bg} 0%,${BRAND.surface} 50%,${BRAND.bg} 100%)`,borderBottom:`1px solid ${BRAND.gold}33`,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <img src="/logo.png" alt="NeuroMatrix" style={{height:36,width:36,objectFit:"contain",borderRadius:8}} onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}/>
+          <div style={{display:"none",width:36,height:36,borderRadius:8,background:`linear-gradient(135deg,${BRAND.gold}44,${BRAND.gold}22)`,border:`1px solid ${BRAND.gold}44`,alignItems:"center",justifyContent:"center",fontSize:16}}>🧠</div>
+          <div style={{display:"flex",flexDirection:"column",gap:1}}>
+            <span style={{fontSize:13,fontWeight:700,letterSpacing:2,color:BRAND.gold}}>NEURO<span style={{color:BRAND.text}}>MATRIX</span></span>
+            <span style={{fontSize:7,color:BRAND.muted,letterSpacing:4,textTransform:"uppercase"}}>Biosystems · NeuroTrack Pro</span>
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <LicenseBadge license={license} onActivate={activateLicense}/>
+          <span style={{background:BRAND.gold+"11",border:`1px solid ${BRAND.gold}33`,color:BRAND.gold,borderRadius:20,padding:"3px 10px",fontSize:9,letterSpacing:1}}>READY</span>
+        </div>
+      </header>
+
       <FreeTierBanner license={license}/>
-
-      <div style={{display:"flex",flex:1}}>
-        {/* Sidebar */}
-        <aside style={{width:234,background:BRAND.surface,borderRight:`1px solid ${BRAND.gold}22`,padding:"16px 0",display:"flex",flexDirection:"column",overflowY:"auto"}}>
-          <div style={{padding:"0 14px 14px"}}>
-            <SessionLimitGate sessions={sessions} license={license}>
-              <DropZone onFiles={handleFiles} processing={processing}/>
-            </SessionLimitGate>
-          </div>
-
-          {error&&(
-            <div style={{margin:"0 12px 12px",background:"#ff6b6b11",border:"1px solid #ff6b6b33",borderRadius:8,padding:"9px 12px",fontSize:9,color:"#ff6b6b",lineHeight:1.6}}>
-              ⚠ {error}
-              <button onClick={()=>setError(null)} style={{float:"right",background:"none",border:"none",color:"#ff6b6b",cursor:"pointer",fontSize:12}}>✕</button>
-            </div>
-          )}
-
-          <GoldDivider/>
-          <div style={{padding:"4px 14px 10px",fontSize:9,color:BRAND.gold+"99",letterSpacing:2,textTransform:"uppercase"}}>
-            Sessions ({sessions.length}{!license?.valid?` / ${FREE_LIMITS.max_sessions}`:""})
-          </div>
-
-          {sessions.length===0&&(
-            <div style={{padding:"20px 14px",fontSize:10,color:BRAND.dim,textAlign:"center",lineHeight:2}}>
-              Upload a video or CSV<br/>to start analysis
-            </div>
-          )}
-
-          {sessions.map((s,i)=>{
-            const color=SESSION_COLORS[i%SESSION_COLORS.length]; const isActive=activeIds.includes(s.id); const st=computeStats(s.positions);
-            return(
-              <div key={s.id} style={{borderLeft:`2px solid ${isActive?color:"transparent"}`,background:isActive?BRAND.panel:"transparent",padding:"9px 12px",transition:"all 0.2s",borderBottom:`1px solid ${BRAND.panel}`}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
-                  <button onClick={()=>toggleId(s.id)} style={{background:"none",border:"none",cursor:"pointer",color:isActive?color:BRAND.muted,fontSize:10,display:"flex",alignItems:"center",gap:6,padding:0,maxWidth:170}}>
-                    <span style={{width:7,height:7,borderRadius:"50%",background:isActive?color:BRAND.dim,flexShrink:0}}/>
-                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</span>
-                  </button>
-                  <button onClick={()=>removeSession(s.id)} style={{background:"none",border:"none",color:BRAND.dim,cursor:"pointer",fontSize:11,padding:"0 2px",flexShrink:0}}>✕</button>
-                </div>
-                <div style={{fontSize:9,color:BRAND.muted,paddingLeft:13}}>{st.frames} frames · {st.distance}m · {st.avgSpeed}m/s</div>
-              </div>
-            );
-          })}
-
-          <div style={{flex:1}}/><GoldDivider/>
-          <div style={{padding:"12px 14px",textAlign:"center"}}>
-            <img src="/logo.png" alt="" style={{height:32,objectFit:"contain",marginBottom:6,opacity:0.6}} onError={e=>e.target.style.display="none"}/>
-            <div style={{fontSize:9,color:BRAND.gold+"88",letterSpacing:2,marginBottom:2}}>NEUROMATRIX</div>
-            <div style={{fontSize:7,color:BRAND.muted,letterSpacing:3,marginBottom:6}}>BIOSYSTEMS</div>
-            <div style={{fontSize:7,color:BRAND.dim,lineHeight:1.8}}>NeuroTrack Pro v2.1<br/>Flask · OpenCV · YOLOv8<br/>© 2026 NeuroMatrix Biosystems</div>
-          </div>
-        </aside>
-
-        {/* Main */}
-        <main style={{flex:1,padding:"20px 24px",overflow:"auto",display:"flex",flexDirection:"column",gap:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <h1 style={{fontSize:18,fontWeight:700,letterSpacing:1,color:BRAND.text}}>Behavioral <span style={{color:BRAND.gold}}>Analysis</span></h1>
-              <p style={{fontSize:9,color:BRAND.muted,marginTop:3,letterSpacing:1}}>MORRIS WATER MAZE · SPATIAL MEMORY · LOCOMOTION TRACKING</p>
-            </div>
-            <div style={{fontSize:9,color:BRAND.dim,textAlign:"right"}}>{new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
-          </div>
-
-          {/* Stats */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
-            <StatCard label="Active Sessions" value={activeIds.length}                           color={BRAND.gold}/>
-            <StatCard label="Distance"        value={activeSession?stats.distance:"—"}    unit="m"   color="#6c63ff"/>
-            <StatCard label="Avg Speed"       value={activeSession?stats.avgSpeed:"—"}    unit="m/s" color="#00f5c4"/>
-            <StatCard label="Max Speed"       value={activeSession?stats.maxSpeed:"—"}    unit="m/s" color="#fc8181"/>
-            <StatCard label="Duration"        value={activeSession?stats.durationSec:"—"} unit="sec" color="#68d391"/>
-          </div>
-
-          {/* Overlay pills */}
-          {sessions.length>0&&(
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-              <span style={{fontSize:9,color:BRAND.muted,letterSpacing:1.5}}>OVERLAY:</span>
-              {sessions.map((s,i)=>{const color=SESSION_COLORS[i%SESSION_COLORS.length];const isActive=activeIds.includes(s.id);return(
-                <button key={s.id} onClick={()=>toggleId(s.id)} style={{background:isActive?color+"22":"transparent",border:`1px solid ${isActive?color+"66":BRAND.border}`,color:isActive?color:BRAND.muted,borderRadius:20,padding:"4px 10px",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
-                  <span style={{width:6,height:6,borderRadius:"50%",background:isActive?color:BRAND.dim}}/>
-                  {s.name.length>12?s.name.slice(0,11)+"…":s.name}
-                </button>
-              );})}
-              <button onClick={()=>setActiveIds(sessions.map(s=>s.id))} style={{background:"none",border:`1px solid ${BRAND.border}`,color:BRAND.muted,borderRadius:20,padding:"4px 10px",fontSize:9,cursor:"pointer"}}>All</button>
-              <button onClick={()=>setActiveIds([])} style={{background:"none",border:`1px solid ${BRAND.border}`,color:BRAND.muted,borderRadius:20,padding:"4px 10px",fontSize:9,cursor:"pointer"}}>None</button>
-            </div>
-          )}
-
-          {/* Main grid */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 330px",gap:16}}>
-
-            {/* Canvas panel */}
-            <div style={{background:BRAND.surface,border:`1px solid ${BRAND.gold}22`,borderRadius:14,overflow:"hidden"}}>
-              <div style={{display:"flex",borderBottom:`1px solid ${BRAND.gold}22`}}>
-                {["Trajectory","Heatmap"].map(t=>(
-                  <button key={t} onClick={()=>{
-                    if(t==="Heatmap"&&!features.includes("heatmap")) return;
-                    setActiveTab(t);
-                  }} style={{
-                    background:"none",border:"none",
-                    borderBottom:activeTab===t?`2px solid ${BRAND.gold}`:"2px solid transparent",
-                    color:activeTab===t?BRAND.gold:BRAND.muted,
-                    padding:"10px 18px",cursor:t==="Heatmap"&&!features.includes("heatmap")?"not-allowed":"pointer",
-                    fontSize:10,letterSpacing:1,
-                    opacity:t==="Heatmap"&&!features.includes("heatmap")?0.45:1,
-                  }}>
-                    {t.toUpperCase()}{t==="Heatmap"&&!features.includes("heatmap")&&" 🔒"}
-                  </button>
-                ))}
-                <div style={{flex:1}}/>
-                <button
-                  onClick={()=>activeTab==="Trajectory"
-                    ?downloadCanvasWithLicense(trajRef,"neuromatrix_trajectory.png",license)
-                    :features.includes("heatmap")&&downloadCanvasWithLicense(heatRef,"neuromatrix_heatmap.png",license)}
-                  style={{background:BRAND.gold+"11",border:`1px solid ${BRAND.gold}33`,color:BRAND.gold,margin:"7px 12px",borderRadius:6,padding:"4px 10px",fontSize:9,cursor:"pointer"}}>
-                  ⬇ Download PNG
-                </button>
-              </div>
-              <div style={{padding:14,aspectRatio:"1",maxHeight:520}}>
-                {activeTab==="Trajectory"
-                  ?<TrajectoryCanvas sessions={sessions} activeIds={activeIds} animate={animating} canvasRef={trajRef}/>
-                  :<LicenseGate feature="heatmap" license={license}>
-                      <HeatmapCanvas positions={combinedPositions} canvasRef={heatRef}/>
-                    </LicenseGate>
-                }
-              </div>
-            </div>
-
-            {/* Right column */}
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{background:BRAND.surface,border:`1px solid ${BRAND.gold}22`,borderRadius:14,padding:14}}>
-                <div style={{fontSize:9,color:BRAND.gold+"99",letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Speed Over Time</div>
-                <SpeedGraph sessions={sessions} activeIds={activeIds}/>
-              </div>
-              <div style={{background:BRAND.surface,border:`1px solid ${BRAND.gold}22`,borderRadius:14,padding:14}}>
-                <div style={{fontSize:9,color:BRAND.gold+"99",letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Distance Comparison</div>
-                <DistanceBar sessions={sessions} activeIds={activeIds}/>
-              </div>
-              <div style={{background:BRAND.surface,border:`1px solid ${BRAND.gold}22`,borderRadius:14,padding:14}}>
-                <div style={{fontSize:9,color:BRAND.gold+"99",letterSpacing:1.5,textTransform:"uppercase",marginBottom:12}}>Zone Distribution</div>
-                {[["Center",stats.centerPct,BRAND.gold],["Periphery",stats.peripheryPct,"#6c63ff"],["Platform",stats.platformPct,"#00f5c4"]].map(([zone,pct,color])=>(
-                  <div key={zone} style={{display:"flex",alignItems:"center",gap:8,marginBottom:9}}>
-                    <span style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>
-                    <span style={{fontSize:9,color:BRAND.muted,width:60}}>{zone}</span>
-                    <div style={{flex:1,background:"#111827",borderRadius:3,height:5,overflow:"hidden"}}>
-                      <div style={{width:`${pct||0}%`,background:color,height:"100%",borderRadius:3,transition:"width 0.8s ease"}}/>
-                    </div>
-                    <span style={{fontSize:9,color,width:28,textAlign:"right"}}>{pct||0}%</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{background:BRAND.surface,border:`1px solid ${BRAND.gold}22`,borderRadius:14,padding:14,flex:1}}>
-                <div style={{fontSize:9,color:BRAND.gold+"99",letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Session Summary</div>
-                {sessions.length===0
-                  ?<div style={{fontSize:10,color:BRAND.dim,textAlign:"center",padding:"16px 0"}}>No sessions loaded</div>
-                  :sessions.map((s,i)=>{
-                    const color=SESSION_COLORS[i%SESSION_COLORS.length];const isActive=activeIds.includes(s.id);const st=computeStats(s.positions);
-                    return(
-                      <div key={s.id} onClick={()=>toggleId(s.id)} style={{padding:"7px 0",borderBottom:`1px solid ${BRAND.panel}`,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:7}}>
-                          <span style={{width:6,height:6,borderRadius:"50%",background:isActive?color:BRAND.dim,flexShrink:0}}/>
-                          <span style={{fontSize:10,color:isActive?BRAND.text:BRAND.muted,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</span>
-                        </div>
-                        <div style={{display:"flex",gap:8}}>
-                          <span style={{fontSize:9,color:BRAND.muted}}>{st.durationSec}s</span>
-                          <span style={{fontSize:9,color,fontFamily:"monospace"}}>{st.distance}m</span>
-                        </div>
-                      </div>
-                    );
-                  })
-                }
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div style={{borderTop:`1px solid ${BRAND.gold}22`,paddingTop:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontSize:8,color:BRAND.dim}}>© 2026 NeuroMatrix Biosystems · NeuroTrack Pro v2.1</span>
-            <span style={{fontSize:8,color:BRAND.dim}}>Morris Water Maze Analysis Platform</span>
-            <span style={{fontSize:8,color:BRAND.dim}}>Powered by OpenCV · YOLOv8 · Flask</span>
-          </div>
-        </main>
-      </div>
+      <BehavioralSuite/>
     </div>
   );
 }
