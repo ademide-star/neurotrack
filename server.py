@@ -2,10 +2,10 @@ import os
 import cv2
 import numpy as np
 import traceback
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="build", static_url_path="")
 CORS(app, origins=["*"])
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
@@ -422,6 +422,13 @@ def process_auto():
     finally:
         if os.path.exists(temp): os.remove(temp)
 
+# ─── RUN ──────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
+
 # ─── NOR (Novel Object Recognition) ─────────────────────────────────────────
 
 @app.route("/process/nor", methods=["POST"])
@@ -511,36 +518,26 @@ def process_nor():
     finally:
         if os.path.exists(temp): os.remove(temp)
 
-# ─── RUN ──────────────────────────────────────────────────────────────────────
+# ─── SERVE REACT BUILD ────────────────────────────────────────────────────────
 
-# ─── SERVE REACT FRONTEND ─────────────────────────────────────────────────────
-
-import os
-from flask import send_from_directory
-
-# Check if we're in production (Render)
-IS_PRODUCTION = os.environ.get('RENDER', False)
-
-if IS_PRODUCTION:
-    # Serve React static files
-    @app.route('/', defaults={'path': ''})
-    @app.route('/<path:path>')
-    def serve(path):
-        if path and os.path.exists(os.path.join(app.static_folder, path)):
-            return send_from_directory(app.static_folder, path)
-        return send_from_directory(app.static_folder, 'index.html')
-    
-    # Set static folder to React build directory
-    app.static_folder = 'build'
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_react(path):
+    """Serve React frontend — catch-all for client-side routing"""
+    # Don't intercept API routes
+    if path.startswith("process") or path.startswith("health"):
+        return jsonify({"error": "Not found"}), 404
+    # Serve static file if it exists
+    build_dir = os.path.join(os.path.dirname(__file__), "build")
+    file_path  = os.path.join(build_dir, path)
+    if path and os.path.exists(file_path):
+        return send_from_directory(build_dir, path)
+    # Fallback to index.html for React Router
+    return send_from_directory(build_dir, "index.html")
 
 # ─── RUN ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    
-    if IS_PRODUCTION:
-        print(f"[Server] NeuroTrack starting in PRODUCTION mode on port {port}")
-    else:
-        print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
-        app.run(host="0.0.0.0", port=port, debug=True)
-
+    print(f"[NeuroMatrix] Starting on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
