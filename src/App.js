@@ -33,7 +33,6 @@ const API = (() => {
   }
   
   // 3. Web Deployment (Vercel/Netlify/etc.)
-  //    Use environment variable if set, otherwise use production backend
   return process.env.REACT_APP_API_URL || "https://neurotrack.neuromatrixbiosystems.com";
 })();
 
@@ -87,7 +86,6 @@ function useLicense() {
   }, []);
 
   async function verifyKey(key) {
-    // Demo mode
     if (key === DEMO_KEY) {
       setLicense(DEMO_LICENSE);
       setFeatures(DEMO_LICENSE.features);
@@ -235,7 +233,6 @@ function LicenseBadge({ license, onActivate }) {
     institution: "#00f5c4",
   };
 
-  // ── Countdown for demo licenses ──
   const [daysLeft, setDaysLeft] = useState(null);
 
   useEffect(() => {
@@ -246,7 +243,7 @@ function LicenseBadge({ license, onActivate }) {
         setDaysLeft(days);
       };
       calc();
-      const t = setInterval(calc, 60000); // update every minute
+      const t = setInterval(calc, 60000);
       return () => clearInterval(t);
     }
   }, [license]);
@@ -259,7 +256,6 @@ function LicenseBadge({ license, onActivate }) {
 
     return (
       <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-        {/* Plan badge */}
         <div style={{
           display:"flex", alignItems:"center", gap:6,
           background: color+"22", border:`1px solid ${color}44`,
@@ -268,7 +264,6 @@ function LicenseBadge({ license, onActivate }) {
         }}>
           ✓ {isDemo ? "DEMO" : license.plan?.toUpperCase()} LICENSE
         </div>
-        {/* Countdown badge for demo */}
         {isDemo && daysLeft !== null && (
           <div style={{
             display:"flex", alignItems:"center", gap:4,
@@ -290,7 +285,6 @@ function LicenseBadge({ license, onActivate }) {
     if (!key) return;
     setLoading(true); setError(null);
 
-    // Demo key
     if (key === DEMO_KEY) {
       localStorage.setItem("nmt_license", key);
       onActivate(key, DEMO_LICENSE);
@@ -437,7 +431,6 @@ function downloadCanvasWithLicense(canvasRef, filename, license) {
     return;
   }
 
-  // Free tier — add watermark
   const off = document.createElement("canvas");
   off.width = canvas.width; off.height = canvas.height;
   const ctx = off.getContext("2d");
@@ -651,6 +644,50 @@ function GoldDivider() {
   );
 }
 
+// ─── CSV EXPORT BUTTON COMPONENT ──────────────────────────────────────────────
+function CSVExportButton({ sessions, activeIds, exportCSV }) {
+  if (activeIds.length === 0) return null;
+  
+  return (
+    <div style={{
+      marginTop: 16,
+      padding: "12px 16px",
+      background: `linear-gradient(135deg, ${BRAND.gold}08, ${BRAND.gold}02)`,
+      border: `1px solid ${BRAND.gold}22`,
+      borderRadius: 8,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+    }}>
+      <div>
+        <span style={{ fontSize: 11, color: BRAND.gold }}>📊 {activeIds.length} session(s) selected</span>
+        <span style={{ fontSize: 10, color: BRAND.muted, marginLeft: 12 }}>
+          Total frames: {sessions.filter(s => activeIds.includes(s.id)).flatMap(s => s.positions || []).length}
+        </span>
+      </div>
+      <button
+        onClick={exportCSV}
+        style={{
+          background: BRAND.gold,
+          color: BRAND.bg,
+          border: "none",
+          borderRadius: 6,
+          padding: "8px 20px",
+          fontSize: 11,
+          fontWeight: 700,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontFamily: "inherit",
+        }}
+      >
+        📥 Export CSV
+      </button>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function NeuroMatrixApp() {
   const [sessions,       setSessions]       = useState([]);
@@ -663,7 +700,6 @@ export default function NeuroMatrixApp() {
   const [queue,          setQueue]          = useState([]);
   const [page,           setPage]           = useState("mwm");
 
-  // ── LICENSE ──
   const { license, features, activateLicense } = useLicense();
 
   const trajRef = useRef(null);
@@ -673,7 +709,6 @@ export default function NeuroMatrixApp() {
   const activeSession     = sessions.find(s=>s.id===activeIds[activeIds.length-1]);
   const stats             = computeStats(activeSession?.positions);
 
-  // ── Queue processor ──
   useEffect(()=>{
     if(processing||queue.length===0) return;
     const file=queue[0]; setQueue(q=>q.slice(1));
@@ -702,13 +737,19 @@ export default function NeuroMatrixApp() {
   const handleFiles   = files=>setQueue(q=>[...q,...files]);
   const toggleId      = id=>setActiveIds(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
   const removeSession = id=>{setSessions(prev=>prev.filter(s=>s.id!==id));setActiveIds(prev=>prev.filter(x=>x!==id));};
-  const exportCSV     = ()=>{
-    const active=sessions.filter(s=>activeIds.includes(s.id)); if(!active.length) return;
-    const rows=["Session,Frame,X,Y"];
-    active.forEach(s=>s.positions.forEach((p,i)=>rows.push(`${s.name},${i},${p.x},${p.y}`)));
-    const blob=new Blob([rows.join("\n")],{type:"text/csv"});
-    const url=URL.createObjectURL(blob); const a=document.createElement("a");
-    a.href=url; a.download="neuromatrix_export.csv"; a.click(); URL.revokeObjectURL(url);
+  
+  const exportCSV = () => {
+    const active = sessions.filter(s => activeIds.includes(s.id));
+    if (!active.length) return;
+    const rows = ["Session,Frame,X,Y"];
+    active.forEach(s => s.positions.forEach((p, i) => rows.push(`${s.name},${i},${p.x},${p.y}`)));
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "neuromatrix_export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const GLOBAL_STYLE=`
@@ -719,14 +760,16 @@ export default function NeuroMatrixApp() {
     ::-webkit-scrollbar-thumb{background:${BRAND.gold}44;border-radius:2px;}
     button{font-family:inherit;transition:all 0.2s;}
     button:hover{opacity:0.8;}
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
   `;
 
-  // ── RENDER — BehavioralSuite is now the main app ──
   return(
     <div style={{minHeight:"100vh",background:BRAND.bg,fontFamily:"'Space Mono','Courier New',monospace",color:BRAND.text,display:"flex",flexDirection:"column"}}>
       <style>{GLOBAL_STYLE}</style>
 
-      {/* Minimal header with just logo + license badge */}
       <header style={{background:`linear-gradient(90deg,${BRAND.bg} 0%,${BRAND.surface} 50%,${BRAND.bg} 100%)`,borderBottom:`1px solid ${BRAND.gold}33`,padding:"0 24px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <img src="/logo.png" alt="NeuroMatrix" style={{height:36,width:36,objectFit:"contain",borderRadius:8}} onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}/>
@@ -743,7 +786,37 @@ export default function NeuroMatrixApp() {
       </header>
 
       <FreeTierBanner license={license}/>
-      <BehavioralSuite/>
+      
+      {/* Main content area with BehavioralSuite and CSV Export */}
+      <div style={{ flex: 1 }}>
+        <BehavioralSuite 
+          sessions={sessions}
+          activeIds={activeIds}
+          processing={processing}
+          processingName={processingName}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          animating={animating}
+          setAnimating={setAnimating}
+          error={error}
+          handleFiles={handleFiles}
+          toggleId={toggleId}
+          removeSession={removeSession}
+          trajRef={trajRef}
+          heatRef={heatRef}
+          combinedPositions={combinedPositions}
+          stats={stats}
+          license={license}
+          features={features}
+        />
+        
+        {/* CSV Export Button - Now properly used */}
+        <CSVExportButton 
+          sessions={sessions}
+          activeIds={activeIds}
+          exportCSV={exportCSV}
+        />
+      </div>
     </div>
   );
 }
