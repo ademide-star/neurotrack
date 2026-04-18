@@ -18,13 +18,24 @@ const BRAND = {
   green:     "#00f5c4",
 };
 
-const API = window.electronAPI
-  ? window.electronAPI.getApiUrl()
-  : (window.location.hostname === "localhost" ||
-     window.location.hostname === "127.0.0.1" ||
-     window.location.protocol === "file:")
-    ? "http://127.0.0.1:5000"
-    : ""  // empty = same origin on Render (Flask serves both)
+// ─── API CONFIGURATION - Supports all deployment scenarios ───
+const API = (() => {
+  // 1. Electron Desktop App
+  if (window.electronAPI) {
+    return window.electronAPI.getApiUrl();
+  }
+  
+  // 2. Local Development (localhost or file protocol)
+  if (window.location.hostname === "localhost" || 
+      window.location.hostname === "127.0.0.1" || 
+      window.location.protocol === "file:") {
+    return "http://127.0.0.1:5000";
+  }
+  
+  // 3. Web Deployment (Vercel/Netlify/etc.)
+  //    Use environment variable if set, otherwise use production backend
+  return process.env.REACT_APP_API_URL || "https://neurotrack.neuromatrixbiosystems.com";
+})();
 
 const SESSION_COLORS = ["#c9a84c","#6c63ff","#00f5c4","#ff6b6b","#63b3ed","#fc8181","#68d391","#f687b3"];
 
