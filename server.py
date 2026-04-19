@@ -120,8 +120,7 @@ def calc_speed(positions, fps=30):
     return speeds
 
 # ─── HEALTH ───────────────────────────────────────────────────────────────────
-
-@app.route("/")
+@app.route("/health")
 def health():
     return jsonify({
         "message":   "NeuroMatrix Biosystems server running",
@@ -438,13 +437,6 @@ def process_auto():
     finally:
         if os.path.exists(temp): os.remove(temp)
 
-# ─── RUN ──────────────────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
-
 # ─── NOR (Novel Object Recognition) ─────────────────────────────────────────
 
 @app.route("/process/nor", methods=["POST"])
@@ -536,18 +528,22 @@ def process_nor():
 
 # ─── SERVE REACT BUILD ────────────────────────────────────────────────────────
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
+# Allow all methods so bad POST requests don't trigger a 405
+@app.route("/", defaults={"path": ""}, methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+@app.route("/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 def serve_react(path):
     """Serve React frontend — catch-all for client-side routing"""
-    # Don't intercept API routes
+    
+    # Safely return 404 JSON for misspelled API routes instead of a 405 HTML error
     if path.startswith("process") or path.startswith("health"):
-        return jsonify({"error": "Not found"}), 404
+        return jsonify({"error": f"API endpoint '/{path}' not found"}), 404
+        
     # Serve static file if it exists
     build_dir = os.path.join(os.path.dirname(__file__), "build")
     file_path  = os.path.join(build_dir, path)
     if path and os.path.exists(file_path):
         return send_from_directory(build_dir, path)
+        
     # Fallback to index.html for React Router
     return send_from_directory(build_dir, "index.html")
 
@@ -557,3 +553,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"[NeuroMatrix] Starting on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
