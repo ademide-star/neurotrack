@@ -2,29 +2,13 @@ import os
 import cv2
 import numpy as np
 import traceback
-from flask import Flask, request, jsonify, send_from_directory, make_response
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder="build", static_url_path="")
-
-@app.before_request
-def handle_options():
-    if request.method == 'OPTIONS':
-        response = make_response('', 200)
-        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        return response
-
-CORS(app, 
-     origins=["https://neurotrack.neuromatrixbiosystems.com", "http://localhost:3000"],
-     supports_credentials=True,
-     allow_headers=["Content-Type", "Authorization"])
-
+CORS(app, origins=["*"])
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
-# ... rest of your routes ...
 # ─── UTILS ────────────────────────────────────────────────────────────────────
 
 def save_temp(file, name="temp_video.mp4"):
@@ -120,13 +104,14 @@ def calc_speed(positions, fps=30):
     return speeds
 
 # ─── HEALTH ───────────────────────────────────────────────────────────────────
+
 @app.route("/health")
 def health():
     return jsonify({
         "message":   "NeuroMatrix Biosystems server running",
         "status":    "ok",
         "cv2":       cv2.__version__,
-        "endpoints": ["/process", "/process/mwm", "/process/ymaze", "/process/oft", "/process/auto"]
+        "endpoints": ["/process", "/process/mwm", "/process/ymaze", "/process/oft", "/process/nor", "/process/auto"]
     })
 
 # ─── ORIGINAL /process (App.js MWM video upload) ─────────────────────────────
@@ -437,6 +422,13 @@ def process_auto():
     finally:
         if os.path.exists(temp): os.remove(temp)
 
+# ─── RUN ──────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print(f"[Server] NeuroMatrix Biosystems starting on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
+
 # ─── NOR (Novel Object Recognition) ─────────────────────────────────────────
 
 @app.route("/process/nor", methods=["POST"])
@@ -528,22 +520,22 @@ def process_nor():
 
 # ─── SERVE REACT BUILD ────────────────────────────────────────────────────────
 
-# Allow all methods so bad POST requests don't trigger a 405
-@app.route("/", defaults={"path": ""}, methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-@app.route("/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+
+@app.route("/", defaults={"path": ""}, methods=["GET","POST","PUT","DELETE","OPTIONS"])
+@app.route("/<path:path>", methods=["GET","POST","PUT","DELETE","OPTIONS"])
 def serve_react(path):
     """Serve React frontend — catch-all for client-side routing"""
-    
-    # Safely return 404 JSON for misspelled API routes instead of a 405 HTML error
-    if path.startswith("process") or path.startswith("health"):
-        return jsonify({"error": f"API endpoint '/{path}' not found"}), 404
-        
+    # Let all /process/* routes pass through to their own handlers
+    if path.startswith("process/") or path == "process":
+        return jsonify({"error": "Not found"}), 404
+    # Only serve GET requests for static files
+    if request.method != "GET":
+        return jsonify({"error": "Method not allowed"}), 405
     # Serve static file if it exists
     build_dir = os.path.join(os.path.dirname(__file__), "build")
     file_path  = os.path.join(build_dir, path)
     if path and os.path.exists(file_path):
         return send_from_directory(build_dir, path)
-        
     # Fallback to index.html for React Router
     return send_from_directory(build_dir, "index.html")
 
@@ -553,4 +545,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"[NeuroMatrix] Starting on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
-
