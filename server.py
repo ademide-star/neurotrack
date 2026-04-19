@@ -389,39 +389,6 @@ def process_oft():
     finally:
         if os.path.exists(temp): os.remove(temp)
 
-# ─── AUTO-DETECT ──────────────────────────────────────────────────────────────
-
-@app.route("/process/auto", methods=["POST"])
-def process_auto():
-    """Smart auto-detect arena type from video"""
-    if "video" not in request.files:
-        return jsonify({"error": "No video file received"}), 400
-    temp = save_temp(request.files["video"], "temp_auto.mp4")
-    try:
-        cap   = open_video(temp)
-        if not cap:
-            return jsonify({"error": "Cannot open video"}), 400
-        info  = get_video_info(cap)
-        arena = detect_arena_type(cap, info)
-        cap.release()
-        print(f"[Auto] Detected arena: {arena}")
-        mapping = {
-            "circular": ("mwm",   "Circular arena detected — Morris Water Maze"),
-            "ymaze":    ("ymaze", "Y-shaped arena detected — Y-Maze"),
-            "square":   ("oft",   "Square arena detected — Open Field Test"),
-        }
-        test, message = mapping.get(arena, ("mwm", "Unknown arena — defaulting to MWM"))
-        return jsonify({
-            "detected_arena": arena,
-            "suggested_test": test,
-            "message":        message,
-            "status":         "success"
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        if os.path.exists(temp): os.remove(temp)
-
 # ─── NOR (Novel Object Recognition) ─────────────────────────────────────────
 
 @app.route("/process/nor", methods=["POST"])
@@ -511,26 +478,70 @@ def process_nor():
     finally:
         if os.path.exists(temp): os.remove(temp)
 
+
+# ─── AUTO-DETECT ──────────────────────────────────────────────────────────────
+
+@app.route("/process/auto", methods=["POST"])
+def process_auto():
+    """Smart auto-detect arena type from video"""
+    if "video" not in request.files:
+        return jsonify({"error": "No video file received"}), 400
+    temp = save_temp(request.files["video"], "temp_auto.mp4")
+    try:
+        cap   = open_video(temp)
+        if not cap:
+            return jsonify({"error": "Cannot open video"}), 400
+        info  = get_video_info(cap)
+        arena = detect_arena_type(cap, info)
+        cap.release()
+        print(f"[Auto] Detected arena: {arena}")
+        mapping = {
+            "circular": ("mwm",   "Circular arena detected — Morris Water Maze"),
+            "ymaze":    ("ymaze", "Y-shaped arena detected — Y-Maze"),
+            "square":   ("oft",   "Square arena detected — Open Field Test"),
+        }
+        test, message = mapping.get(arena, ("mwm", "Unknown arena — defaulting to MWM"))
+        return jsonify({
+            "detected_arena": arena,
+            "suggested_test": test,
+            "message":        message,
+            "status":         "success"
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(temp): os.remove(temp)
+
+
+
 # ─── SERVE REACT BUILD ────────────────────────────────────────────────────────
 
 
-@app.route("/", defaults={"path": ""}, methods=["GET","POST","PUT","DELETE","OPTIONS"])
-@app.route("/<path:path>", methods=["GET","POST","PUT","DELETE","OPTIONS"])
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
 def serve_react(path):
     """Serve React frontend — catch-all for client-side routing"""
-    # Let all /process/* routes pass through to their own handlers
-    if path.startswith("process/") or path == "process":
+    # Let all API routes pass through — never catch these
+    api_prefixes = ("process", "health", "webhook", "verify", "download", "admin")
+    if any(path.startswith(p) for p in api_prefixes):
         return jsonify({"error": "Not found"}), 404
-    # Only serve GET requests for static files
+
+    # Only serve static files on GET
     if request.method != "GET":
-        return jsonify({"error": "Method not allowed"}), 405
+        return jsonify({"error": "Not found"}), 404
+
     # Serve static file if it exists
     build_dir = os.path.join(os.path.dirname(__file__), "build")
     file_path  = os.path.join(build_dir, path)
     if path and os.path.exists(file_path):
         return send_from_directory(build_dir, path)
+
     # Fallback to index.html for React Router
-    return send_from_directory(build_dir, "index.html")
+    index_path = os.path.join(build_dir, "index.html")
+    if os.path.exists(index_path):
+        return send_from_directory(build_dir, "index.html")
+
+    return jsonify({"error": "Build not found — run npm run build first"}), 404
 
 # ─── RUN ──────────────────────────────────────────────────────────────────────
 
