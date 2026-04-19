@@ -6,13 +6,6 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder="build", static_url_path="")
-# With this (use your actual frontend URL):
-CORS(app, 
-     origins=["https://neurotrack.neuromatrixbiosystems.com", "http://localhost:3000"],
-     supports_credentials=True,
-     allow_headers=["Content-Type", "Authorization"])
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
-
 @app.before_request
 def handle_options():
     """Automatically respond to OPTIONS preflight requests for all API routes."""
@@ -23,6 +16,13 @@ def handle_options():
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         return response
+# With this (use your actual frontend URL):
+CORS(app, 
+     origins=["https://neurotrack.neuromatrixbiosystems.com", "http://localhost:3000"],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization"])
+     app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
+
 # ─── UTILS ────────────────────────────────────────────────────────────────────
 
 def save_temp(file, name="temp_video.mp4"):
