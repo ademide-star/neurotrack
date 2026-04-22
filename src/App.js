@@ -39,7 +39,7 @@ const API = (() => {
 const SESSION_COLORS = ["#c9a84c","#6c63ff","#00f5c4","#ff6b6b","#63b3ed","#fc8181","#68d391","#f687b3"];
 
 // ─── LICENSE CONFIG ───────────────────────────────────────────────────────────
-const LICENSE_API = "https://your-license-server.onrender.com"; // update after deploy
+const LICENSE_API = "https://neuromatrix-license.onrender.com"; // update after deploy
 
 const FREE_FEATURES = [
   "mwm_basic",
