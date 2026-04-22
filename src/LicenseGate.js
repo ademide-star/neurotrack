@@ -3,7 +3,7 @@
 // This handles freemium restrictions and license verification
 
 // ── License server URL ──
-const LICENSE_API = "https://your-license-server.onrender.com"; // update after deploy
+const LICENSE_API = "https://neuromatrix-license.onrender.com"; // update after deploy
 
 // ── Free tier feature limits ──
 const FREE_FEATURES = [
