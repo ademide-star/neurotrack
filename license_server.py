@@ -101,8 +101,9 @@ def db_save(license_key, data):
         log.error(f"[DB] Save failed: {e}")
 
 def db_load_all():
-    """Load all licenses from Supabase on startup"""
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    """Load all licenses from Supabase on startup — silent if not configured"""
+    if not SUPABASE_URL or not SUPABASE_KEY or SUPABASE_URL == "":
+        log.info("[DB] No Supabase configured — using in-memory storage")
         return
     try:
         import urllib.request
@@ -113,7 +114,7 @@ def db_load_all():
                 "Authorization": f"Bearer {SUPABASE_KEY}",
             }
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             rows = json.loads(resp.read())
             for row in rows:
                 key = row["key"]
@@ -125,7 +126,7 @@ def db_load_all():
                 LICENSE_DB[key] = row
             log.info(f"[DB] Loaded {len(rows)} licenses from Supabase")
     except Exception as e:
-        log.error(f"[DB] Load failed: {e}")
+        log.info(f"[DB] Supabase not available — using in-memory only: {type(e).__name__}")
 
 # ── Plan definitions ──────────────────────────────────────────────────────────
 PLANS = {
