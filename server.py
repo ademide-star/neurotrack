@@ -553,17 +553,30 @@ def serve_react(path):
         "message": "NeuroMatrix server running — React build not found",
         "hint": "Run npm run build to generate the frontend"
     }), 200
-import threading
-import urllib.request as _urllib
 
-def keep_alive():
+# ─── KEEP ALIVE (works with gunicorn) ────────────────────────────────────────
+import threading
+import urllib.request as _req
+
+def _keep_alive():
+    """Ping self every 14 min to prevent Render free tier hibernation"""
     import time
     url = os.environ.get("RENDER_EXTERNAL_URL", "")
-    if not url: return
+    if not url:
+        return
+    ping = f"{url}/health"
+    time.sleep(60)  # wait 1 min after startup before first ping
     while True:
+        try:
+            _req.urlopen(ping, timeout=10)
+        except Exception:
+            pass
         time.sleep(14 * 60)
-        try: _urllib.urlopen(f"{url}/health", timeout=10)
-        except: pass
+
+# Start keep-alive for both gunicorn and direct run
+_t = threading.Thread(target=_keep_alive, daemon=True)
+_t.start()
+
 # ─── RUN ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
