@@ -79,28 +79,63 @@ function VideoUpload({ onResult, endpoint, processing, setProcessing, color=BRAN
   const inputRef = useRef(null);
   const [error, setError] = useState(null);
   const [drag, setDrag] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
   const process = async (file) => {
     setProcessing(true); setError(null);
-    try {
-      const fd = new FormData(); fd.append("video", file);
-      const res = await fetch(`${API}${endpoint}`, { method:"POST", body:fd });
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      onResult(data, file.name.replace(/\.[^/.]+$/, ""));
-    } catch(e) { setError(e.message.includes("fetch") ? "⚠ Cannot reach server — is server running on :5000?" : e.message); }
-    finally { setProcessing(false); }
+    for (let i = 1; i <= 3; i++) {
+      setAttempt(i);
+      try {
+        const fd = new FormData(); fd.append("video", file);
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 90000); // 90s
+        const res = await fetch(`${API}${endpoint}`, { method:"POST", body:fd, signal:controller.signal });
+        clearTimeout(t);
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        onResult(data, file.name.replace(/\.[^/.]+$/, ""));
+        setProcessing(false); setAttempt(0); return;
+      } catch(e) {
+        const isNet = e.name === "AbortError" || e.message.includes("fetch") || e.message.includes("Failed");
+        if (isNet && i < 3) {
+          setError(`⏱ Server waking up... retry ${i}/3 — please wait 10 seconds`);
+          await new Promise(r => setTimeout(r, 10000));
+          continue;
+        }
+        setError(
+          e.name === "AbortError"
+            ? "⏱ Request timed out. Server may be waking up — wait 30s and try again."
+            : isNet
+            ? "⚠ Cannot reach server. Open neurotrack.neuromatrixbiosystems.com/health to wake it up, then retry."
+            : e.message
+        );
+        break;
+      }
+    }
+    setProcessing(false); setAttempt(0);
   };
+
   const handle = files => { const v=Array.from(files).filter(f=>f.type.startsWith("video/")||f.name.match(/\.(mp4|avi|mov|mkv)$/i)); if(v.length) process(v[0]); };
   return (
     <div>
       <div onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);handle(e.dataTransfer.files);}} onClick={()=>!processing&&inputRef.current.click()} style={{border:`2px dashed ${drag?color:BRAND.border}`,borderRadius:"10px",padding:"18px",textAlign:"center",cursor:processing?"wait":"pointer",background:drag?color+"08":"transparent"}}>
         <input ref={inputRef} type="file" accept="video/*,.mp4,.avi,.mov,.mkv" style={{display:"none"}} onChange={e=>handle(e.target.files)}/>
         <div style={{fontSize:"22px",marginBottom:"5px"}}>{processing?"⏳":"🎥"}</div>
-        <div style={{fontSize:"12px",color,fontWeight:"700",marginBottom:"3px"}}>{processing?"Analysing...":"Drop video or click to upload"}</div>
-        <div style={{fontSize:"9px",color:BRAND.muted}}>MP4 · AVI · MOV · MKV</div>
+        <div style={{fontSize:"12px",color,fontWeight:"700",marginBottom:"3px"}}>
+          {processing ? (attempt > 1 ? `Waking server... attempt ${attempt}/3` : "Analysing video...") : "Drop video or click to upload"}
+        </div>
+        <div style={{fontSize:"9px",color:BRAND.muted}}>MP4 · AVI · MOV · MKV · Max 500MB</div>
       </div>
-      {error && <div style={{marginTop:"8px",background:BRAND.red+"11",border:`1px solid ${BRAND.red}33`,borderRadius:"6px",padding:"8px 12px",fontSize:"10px",color:BRAND.red}}>{error}<button onClick={()=>setError(null)} style={{float:"right",background:"none",border:"none",color:BRAND.red,cursor:"pointer"}}>✕</button></div>}
+      {error && (
+        <div style={{marginTop:"8px",background:BRAND.red+"11",border:`1px solid ${BRAND.red}33`,borderRadius:"6px",padding:"10px 12px",fontSize:"10px",color:BRAND.red,lineHeight:"1.7"}}>
+          {error}
+          <div style={{marginTop:"8px",display:"flex",gap:"8px"}}>
+            <button onClick={()=>setError(null)} style={{background:BRAND.red,color:"#fff",border:"none",borderRadius:"4px",padding:"4px 10px",fontSize:"9px",cursor:"pointer",fontFamily:"inherit"}}>Dismiss</button>
+            <a href="https://neurotrack.neuromatrixbiosystems.com/health" target="_blank" rel="noreferrer" style={{background:"transparent",color:BRAND.red,border:`1px solid ${BRAND.red}44`,borderRadius:"4px",padding:"4px 10px",fontSize:"9px",textDecoration:"none"}}>Wake Server →</a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
