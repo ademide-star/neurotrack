@@ -749,9 +749,36 @@ def stats():
         "total_revenue_usd": revenue_usd,
     }), 200
 
+# ── Self-ping to prevent Render hibernation ───────────────────────────────────
+
+import threading
+import urllib.request as _urllib
+
+def keep_alive():
+    """Ping self every 14 minutes to prevent Render free tier hibernation"""
+    import time
+    self_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if not self_url:
+        log.info("[KeepAlive] No RENDER_EXTERNAL_URL set — skipping self-ping")
+        return
+    ping_url = f"{self_url}/"
+    log.info(f"[KeepAlive] Starting self-ping every 14 min → {ping_url}")
+    while True:
+        time.sleep(14 * 60)  # 14 minutes
+        try:
+            _urllib.urlopen(ping_url, timeout=10)
+            log.info("[KeepAlive] ✅ Self-ping successful")
+        except Exception as e:
+            log.warning(f"[KeepAlive] Self-ping failed: {e}")
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     log.info(f"[License Server] Starting on port {port}")
+
+    # Start keep-alive thread
+    t = threading.Thread(target=keep_alive, daemon=True)
+    t.start()
+
     app.run(host="0.0.0.0", port=port, debug=False)
