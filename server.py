@@ -553,7 +553,17 @@ def serve_react(path):
         "message": "NeuroMatrix server running — React build not found",
         "hint": "Run npm run build to generate the frontend"
     }), 200
+import threading
+import urllib.request as _urllib
 
+def keep_alive():
+    import time
+    url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if not url: return
+    while True:
+        time.sleep(14 * 60)
+        try: _urllib.urlopen(f"{url}/health", timeout=10)
+        except: pass
 # ─── RUN ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
