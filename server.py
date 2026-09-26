@@ -518,7 +518,126 @@ def process_nor():
     finally:
         if os.path.exists(temp): os.remove(temp)
 
-# ─── SERVE REACT BUILD ────────────────────────────────────────────────────────
+# ─── FEAR CONDITIONING ────────────────────────────────────────────────────────
+
+@app.route("/process/fc", methods=["POST"])
+def process_fc():
+    """
+    Fear Conditioning — detects freezing behaviour via frame-by-frame
+    pixel difference analysis. Compatible with the custom low-cost
+    apparatus by Abdulmajeed et al. (2026), Pac. J. Med. Sci. 27(2), 50-62.
+    University of Ilorin Physiology / Computer Engineering Dept.
+    """
+    if "video" not in request.files:
+        return jsonify({"error": "No video file received"}), 400
+
+    temp = save_temp(request.files["video"], "temp_fc.mp4")
+    try:
+        cap  = open_video(temp)
+        if not cap:
+            return jsonify({"error": "Cannot open video"}), 400
+
+        info = get_video_info(cap)
+        fps  = info["fps"] or 30
+        W, H = info["width"], info["height"]
+
+        # ── Parameters ──
+        FREEZE_THRESHOLD   = 10   # pixel diff below this = freezing
+        MOTION_BLUR_KERNEL = 11   # gaussian blur kernel
+        SAMPLE_RATE        = 2    # analyse every Nth frame
+
+        positions          = []
+        freeze_frames      = 0
+        motion_frames      = 0
+        frame_count        = 0
+        prev_gray          = None
+
+        # First 180 frames (~6s at 30fps) = baseline window
+        BASELINE_FRAMES    = int(fps * 6)
+        baseline_freeze    = 0
+        baseline_total     = 0
+
+        while True:
+            ret, frame = cap.read()
+            if not ret: break
+            frame_count += 1
+            if frame_count % SAMPLE_RATE != 0: continue
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = cv2.GaussianBlur(gray, (MOTION_BLUR_KERNEL, MOTION_BLUR_KERNEL), 0)
+
+            if prev_gray is not None:
+                diff   = cv2.absdiff(prev_gray, gray)
+                score  = np.mean(diff)
+                frozen = score < FREEZE_THRESHOLD
+
+                if frozen:
+                    freeze_frames += 1
+                    if frame_count <= BASELINE_FRAMES:
+                        baseline_freeze += 1
+                else:
+                    motion_frames += 1
+
+                if frame_count <= BASELINE_FRAMES:
+                    baseline_total += 1
+
+                # Track approximate position using motion centroid
+                result = detect_subject(frame)
+                if result:
+                    rx, ry, _ = result
+                    positions.append(normalize_pos(rx, ry, W, H))
+                else:
+                    # During freeze, estimate position from last known
+                    if positions:
+                        positions.append(positions[-1])
+
+            prev_gray = gray
+
+        cap.release()
+
+        total_analysed = freeze_frames + motion_frames
+        if total_analysed == 0:
+            return jsonify({"error": "No frames analysed"}), 400
+
+        duration_sec       = round(total_analysed / (fps / SAMPLE_RATE), 2)
+        freezing_time      = round(freeze_frames / (fps / SAMPLE_RATE), 2)
+        freezing_pct       = round(freeze_frames / total_analysed * 100, 1)
+        locomotion_pct     = round(motion_frames / total_analysed * 100, 1)
+        baseline_freeze_pct= round(baseline_freeze / max(baseline_total, 1) * 100, 1)
+
+        # Memory classification
+        if freezing_pct >= 50:
+            memory_status = "High Fear Response"
+        elif freezing_pct >= 25:
+            memory_status = "Moderate Fear Response"
+        else:
+            memory_status = "Low Fear Response"
+
+        return jsonify({
+            "positions":              positions[:1000],  # limit for bandwidth
+            "total_frames":           total_analysed,
+            "duration_sec":           duration_sec,
+            "freezing_time":          freezing_time,
+            "freezing_pct":           freezing_pct,
+            "locomotion_pct":         locomotion_pct,
+            "baseline_freezing_pct":  baseline_freeze_pct,
+            "freeze_frames":          freeze_frames,
+            "motion_frames":          motion_frames,
+            "memory_status":          memory_status,
+            "freeze_threshold":       FREEZE_THRESHOLD,
+            "apparatus":              "Abdulmajeed et al., 2026 — Low-Cost Custom Fear Conditioning Setup, Univ. of Ilorin",
+            "arena_type":             "fc",
+            "status":                 "success",
+        })
+
+    except Exception as e:
+        print(f"[FC] ERROR: {traceback.format_exc()}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(temp):
+            os.remove(temp)
+
+
 
 
 @app.route("/", defaults={"path": ""}, methods=["GET","POST","PUT","DELETE","OPTIONS"])
