@@ -224,7 +224,7 @@ function ResultsPanel({ result, color, fields, onDownloadCSV }) {
 // ─── MWM ─────────────────────────────────────────────────────────────────────
 function MWMTab() {
   const [sessions,setSessions]=useState([]); const [activeViz,setActiveViz]=useState("trajectory"); const [processing,setProcessing]=useState(false);
-  const [trials,setTrials]=useState([]); const [form,setForm]=useState({trial:"",day:"",latency:"",distance:"",speed:"",quadrant:"Target",probe:false,probeTime:"",probePct:""});
+  const [trials,setTrials]=useState([]); const [form,setForm]=useState({animal:"",group:"",trial:"",day:"",latency:"",distance:"",speed:"",quadrant:"Target",probe:false,probeTime:"",probePct:""});
   const trajRef=useRef(null),heatRef=useRef(null),poolRef=useRef(null);
   const active=sessions[sessions.length-1]; const positions=active?.positions||[];
   const onVideoResult=(data,name)=>{ setSessions(s=>[...s,{id:Date.now(),name,...data}]); setForm(f=>({...f,trial:String(trials.length+1),latency:String(data.escape_latency||""),distance:String(data.distance_m||""),speed:String(data.avg_speed||"")})); };
@@ -235,7 +235,7 @@ function MWMTab() {
   const avgProbe=probeTrials.length?(probeTrials.reduce((a,b)=>a+(parseFloat(b.probePct)||0),0)/probeTrials.length).toFixed(1):"—";
   const byDay={}; trials.filter(t=>!t.probe).forEach(t=>{ const d=t.day||"1"; if(!byDay[d]) byDay[d]=[]; byDay[d].push(parseFloat(t.latency)||0); });
   const dayChart=Object.entries(byDay).map(([d,v])=>({label:`D${d}`,value:v.reduce((a,b)=>a+b,0)/v.length}));
-  const exportCSV=()=>{ const rows=[["Trial","Day","Latency(s)","Distance(m)","Speed(m/s)","Quadrant","Type","TargetProbe%","Source","Date"]]; trials.forEach(t=>rows.push([t.trial,t.day,t.latency,t.distance,t.speed,t.quadrant,t.probe?"Probe":"Acquisition",t.probePct,"Manual",new Date().toISOString().split("T")[0]])); sessions.forEach(s=>rows.push(["Video","",s.escape_latency,s.distance_m,s.avg_speed,"","Video",s.quadrant_pct?.Target||"",s.name,new Date().toISOString().split("T")[0]])); downloadCSV(rows,"mwm_results.csv"); };
+  const exportCSV=()=>{ const rows=[["Animal","Group","Trial","Day","Latency(s)","Distance(m)","Speed(m/s)","Quadrant","Type","TargetProbe%","Source","Date"]]; trials.forEach(t=>rows.push([t.animal||"",t.group||"",t.trial,t.day,t.latency,t.distance,t.speed,t.quadrant,t.probe?"Probe":"Acquisition",t.probePct,"Manual",new Date().toISOString().split("T")[0]])); sessions.forEach(s=>rows.push([s.name,"","Video","",s.escape_latency,s.distance_m,s.avg_speed,"","Video",s.quadrant_pct?.Target||"",s.name,new Date().toISOString().split("T")[0]])); downloadCSV(rows,"mwm_results.csv"); };
   const resultFields=active?[["Escape Latency",`${active.escape_latency}s`,BRAND.gold],["Distance",`${active.distance_m}m`,BRAND.blue],["Avg Speed",`${active.avg_speed}m/s`,BRAND.green],["Max Speed",`${active.max_speed}m/s`,BRAND.red],["Duration",`${active.duration_sec}s`,BRAND.muted],["Target Q",`${active.quadrant_pct?.Target||0}%`,BRAND.purple],["Platform",`${active.platform_pct||0}%`,BRAND.orange],["Frames",active.total_frames,BRAND.gold]]:[];
   useEffect(()=>{ const canvas=poolRef.current; if(!canvas) return; const ctx=canvas.getContext("2d"); const W=180,H=180; ctx.clearRect(0,0,W,H); ctx.fillStyle=BRAND.bg; ctx.fillRect(0,0,W,H); const cx=W/2,cy=H/2,r=70; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.strokeStyle=BRAND.border; ctx.lineWidth=2; ctx.stroke(); ctx.strokeStyle=BRAND.dim; ctx.lineWidth=1; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r); ctx.stroke(); ctx.setLineDash([]); [["T",0.5,-0.5,BRAND.gold],["O",-0.5,0.5,BRAND.muted],["L",-0.5,-0.5,BRAND.muted],["R",0.5,0.5,BRAND.muted]].forEach(([l,ox,oy,c])=>{ ctx.fillStyle=c; ctx.font="9px monospace"; ctx.textAlign="center"; ctx.fillText(l,cx+ox*r,cy+oy*r+3); }); ctx.beginPath(); ctx.arc(cx+r*0.5,cy-r*0.5,8,0,Math.PI*2); ctx.fillStyle=BRAND.gold+"33"; ctx.fill(); ctx.strokeStyle=BRAND.gold; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle=BRAND.gold; ctx.font="8px monospace"; ctx.textAlign="center"; ctx.fillText("P",cx+r*0.5,cy-r*0.5+3); },[]);
   return (
@@ -262,8 +262,8 @@ function MWMTab() {
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}}><div style={S.cardTitle}>➕ Manual Trial Entry</div>{(trials.length>0||sessions.length>0)&&<button style={S.btnO()} onClick={exportCSV}>⬇ Export CSV</button>}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"10px"}}>
-          {[["Trial #","trial","1"],["Day","day","1"],["Latency(s)","latency","60"],["Distance(m)","distance","5"],["Speed(m/s)","speed","0.3"]].map(([l,k,p])=>(
-            <div key={k}><label style={S.label}>{l}</label><input style={S.input} type="number" value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})} placeholder={p}/></div>
+          {[["Animal ID","animal","Rat-01","text"],["Group","group","Control","text"],["Trial #","trial","1","number"],["Day","day","1","number"],["Latency(s)","latency","60","number"],["Distance(m)","distance","5","number"],["Speed(m/s)","speed","0.3","number"]].map(([l,k,p,t])=>(
+            <div key={k}><label style={S.label}>{l}</label><input style={S.input} type={t} value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})} placeholder={p}/></div>
           ))}
           <div><label style={S.label}>Quadrant</label><select style={S.input} value={form.quadrant} onChange={e=>setForm({...form,quadrant:e.target.value})}>{["Target","Opposite","Left","Right"].map(q=><option key={q}>{q}</option>)}</select></div>
         </div>
@@ -275,9 +275,12 @@ function MWMTab() {
       </div>
       {trials.length>0&&<div style={{...S.card,marginTop:"14px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}><div style={S.cardTitle}>📋 Trial Log ({trials.length})</div><button style={S.btnO()} onClick={exportCSV}>⬇ Export CSV</button></div>
-        <div style={{overflowX:"auto"}}><table style={S.table}><thead><tr>{["Trial","Day","Latency","Distance","Speed","Quadrant","Type","Target%",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <div style={{overflowX:"auto"}}><table style={S.table}><thead><tr>{["Animal","Group","Trial","Day","Latency","Distance","Speed","Quadrant","Type","Target%",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
         <tbody>{trials.map(t=>(
-          <tr key={t.id}><td style={S.td}>{t.trial}</td><td style={S.td}>{t.day}</td><td style={{...S.td,color:BRAND.gold}}>{t.latency}s</td><td style={S.td}>{t.distance}m</td><td style={S.td}>{t.speed}m/s</td><td style={S.td}>{t.quadrant}</td><td style={S.td}><span style={S.badge(t.probe?BRAND.purple:BRAND.green)}>{t.probe?"Probe":"Acq"}</span></td><td style={{...S.td,color:BRAND.purple}}>{t.probePct?`${t.probePct}%`:"—"}</td><td style={S.td}><button style={{...S.btnO(BRAND.red),padding:"2px 8px",fontSize:"9px"}} onClick={()=>setTrials(x=>x.filter(i=>i.id!==t.id))}>✕</button></td>
+          <tr key={t.id}>
+            <td style={S.td}>{t.animal||"—"}</td>
+            <td style={S.td}><span style={S.badge(BRAND.gold)}>{t.group||"—"}</span></td>
+            <td style={S.td}>{t.trial}</td><td style={S.td}>{t.day}</td><td style={{...S.td,color:BRAND.gold}}>{t.latency}s</td><td style={S.td}>{t.distance}m</td><td style={S.td}>{t.speed}m/s</td><td style={S.td}>{t.quadrant}</td><td style={S.td}><span style={S.badge(t.probe?BRAND.purple:BRAND.green)}>{t.probe?"Probe":"Acq"}</span></td><td style={{...S.td,color:BRAND.purple}}>{t.probePct?`${t.probePct}%`:"—"}</td><td style={S.td}><button style={{...S.btnO(BRAND.red),padding:"2px 8px",fontSize:"9px"}} onClick={()=>setTrials(x=>x.filter(i=>i.id!==t.id))}>✕</button></td>
           </tr>
         ))}</tbody></table></div>
       </div>}
@@ -341,7 +344,7 @@ function OFTTab() {
   const getAnxiety=(cT,tot)=>{ const p=tot?(parseFloat(cT)||0)/parseFloat(tot)*100:0; return p>=30?{l:"Low",c:BRAND.green}:p>=15?{l:"Moderate",c:BRAND.gold}:{l:"High",c:BRAND.red}; };
   const avg=(k1,k2)=>all.length?(all.reduce((a,b)=>a+(parseFloat(b[k1]||b[k2])||0),0)/all.length).toFixed(1):"—";
   const onVideoResult=(data,name)=>{ setSessions(s=>[...s,{id:Date.now(),name,...data}]); setForm(f=>({...f,animal:name,distance:String(data.distance_m||""),centerTime:String(data.center_time||""),peripheryTime:String(data.periphery_time||""),rearing:String(data.rearing_events||""),freezing:String(data.freezing_time||""),avgVelocity:String(data.avg_speed||""),maxVelocity:String(data.max_speed||"")})); };
-  const exportCSV=()=>{ const rows=[["Animal","Group","Distance(m)","Center(s)","Periphery(s)","Center%","Rearing","Freezing(s)","Freezing%","AvgSpeed(m/s)","MaxSpeed(m/s)","AnxietyIndex","Source","Date"]]; all.forEach(r=>{ const tot=(parseFloat(r.center_time||r.centerTime)||0)+(parseFloat(r.periphery_time||r.peripheryTime)||0); const a=getAnxiety(r.center_time||r.centerTime,tot); rows.push([r.animal||r.name,r.group||"",r.distance_m||r.distance,r.center_time||r.centerTime,r.periphery_time||r.peripheryTime,r.center_pct||"",r.rearing_events||r.rearing,r.freezing_time||r.freezing,r.freezing_pct||"",r.avg_speed||r.avgVelocity,r.max_speed||r.maxVelocity,a.l,r.positions?"Video":"Manual",new Date().toISOString().split("T")[0]]); }); downloadCSV(rows,"oft_results.csv"); };
+  const exportCSV=()=>{ const rows=[["Animal","Group","Distance(m)","Center(s)","Periphery(s)","Center%","Rearing Events","Freezing(s)","Freezing%","AvgSpeed(m/s)","MaxSpeed(m/s)","AnxietyIndex","Source","Date"]]; all.forEach(r=>{ const tot=(parseFloat(r.center_time||r.centerTime)||0)+(parseFloat(r.periphery_time||r.peripheryTime)||0); const a=getAnxiety(r.center_time||r.centerTime,tot); rows.push([r.animal||r.name,r.group||"",r.distance_m||r.distance,r.center_time||r.centerTime,r.periphery_time||r.peripheryTime,r.center_pct||"",r.rearing_events||r.rearing,r.freezing_time||r.freezing,r.freezing_pct||"",r.avg_speed||r.avgVelocity,r.max_speed||r.maxVelocity,a.l,r.positions?"Video":"Manual",new Date().toISOString().split("T")[0]]); }); downloadCSV(rows,"oft_results.csv"); };
   const resultFields=active?[["Distance",`${active.distance_m}m`,BRAND.gold],["Center",`${active.center_time}s (${active.center_pct}%)`,BRAND.green],["Periphery",`${active.periphery_time}s`,BRAND.blue],["Freezing",`${active.freezing_time}s`,BRAND.red],["Rearing",active.rearing_events,BRAND.purple],["Avg Speed",`${active.avg_speed}m/s`,BRAND.blue],["Max Speed",`${active.max_speed}m/s`,BRAND.orange],["Duration",`${active.duration_sec}s`,BRAND.muted]]:[];
   useEffect(()=>{ const canvas=arenaRef.current; if(!canvas) return; const ctx=canvas.getContext("2d"); ctx.clearRect(0,0,180,180); ctx.fillStyle=BRAND.bg; ctx.fillRect(0,0,180,180); ctx.fillStyle="#0d1428"; ctx.strokeStyle=BRAND.border; ctx.lineWidth=2; ctx.beginPath(); ctx.roundRect(10,10,160,160,4); ctx.fill(); ctx.stroke(); ctx.fillStyle=BRAND.gold+"22"; ctx.strokeStyle=BRAND.gold+"88"; ctx.lineWidth=1; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.roundRect(46,46,88,88,3); ctx.fill(); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=BRAND.gold; ctx.font="8px monospace"; ctx.textAlign="center"; ctx.fillText("CENTER",90,93); ctx.fillStyle=BRAND.muted; ctx.fillText("PERIPHERY",90,22); },[]);
   return (
@@ -438,9 +441,285 @@ function NORTab() {
   );
 }
 
+// ─── FEAR CONDITIONING TAB ────────────────────────────────────────────────────
+function FCTab() {
+  const [sessions,setSessions]=useState([]); const [processing,setProcessing]=useState(false); const [records,setRecords]=useState([]);
+  const [phase,setPhase]=useState("acquisition"); // acquisition | context | cue
+  const [form,setForm]=useState({animal:"",group:"",day:"1",phase:"Acquisition",trial:"",baselineFreezing:"",freezingPct:"",shockIntensity:"1.5",toneFreq:"55",iti:"60",notes:""});
+  const [viz,setViz]=useState("trajectory");
+  const trajRef=useRef(null),heatRef=useRef(null),arenaRef=useRef(null);
+  const active=sessions[sessions.length-1]; const positions=active?.positions||[]; const all=[...sessions,...records];
+
+  // Color coding
+  const PHASE_COLORS={acquisition:BRAND.red,context:"#a855f7",cue:"#ec4899"};
+  const pc=PHASE_COLORS[phase]||BRAND.red;
+
+  const getFreezeColor=v=>{ const n=parseFloat(v); return n>=50?BRAND.red:n>=25?BRAND.orange:BRAND.green; };
+  const getMemoryStatus=(ctx,cue)=>{
+    const c=parseFloat(ctx)||0, u=parseFloat(cue)||0;
+    if(c>=50&&u>=50) return {label:"Both Intact",color:BRAND.red,desc:"Hippocampal + Amygdala"};
+    if(c>=50&&u<50) return {label:"Contextual Only",color:"#a855f7",desc:"Hippocampal intact"};
+    if(c<50&&u>=50) return {label:"Cued Only",color:"#ec4899",desc:"Amygdala intact"};
+    return {label:"Both Impaired",color:BRAND.green,desc:"Memory consolidation disrupted"};
+  };
+
+  const onVideoResult=(data,name)=>{
+    setSessions(s=>[...s,{id:Date.now(),name,phase,...data}]);
+    setForm(f=>({...f,animal:name,freezingPct:String(data.freezing_pct||""),baselineFreezing:String(data.baseline_freezing_pct||"")}));
+  };
+
+  // Group records by animal for summary
+  const byAnimal={};
+  all.forEach(r=>{
+    const k=r.animal||r.name||"Unknown";
+    if(!byAnimal[k]) byAnimal[k]={name:k,group:r.group||"",acquisition:[],context:null,cue:[]};
+    const ph=(r.phase||"").toLowerCase();
+    if(ph.includes("acquisition")||ph.includes("acq")) byAnimal[k].acquisition.push(r);
+    else if(ph.includes("context")||ph.includes("ctx")) byAnimal[k].context=r;
+    else if(ph.includes("cue")) byAnimal[k].cue.push(r);
+  });
+
+  const exportCSV=()=>{
+    const rows=[["Animal","Group","Phase","Trial","Baseline Freezing%","Freezing%","Shock Intensity(mA)","Tone Freq(dB)","ITI(s)","Memory Type","Notes","Source","Date"]];
+    all.forEach(r=>{
+      const ph=(r.phase||"").toLowerCase();
+      const memType=ph.includes("context")?"Hippocampal (Contextual)":ph.includes("cue")?"Amygdala (Cued)":"Acquisition";
+      rows.push([r.animal||r.name,r.group||"",r.phase||"",r.trial||"",r.baselineFreezing||r.baseline_freezing_pct||"",r.freezingPct||r.freezing_pct||"",r.shockIntensity||"1.5",r.toneFreq||"55",r.iti||"60",memType,r.notes||"",r.positions?"Video":"Manual",new Date().toISOString().split("T")[0]]);
+    });
+    downloadCSV(rows,"fear_conditioning_results.csv");
+  };
+
+  const resultFields=active?[
+    ["Total Freezing",`${active.freezing_pct}%`,BRAND.red],
+    ["Baseline Freeze",`${active.baseline_freezing_pct}%`,BRAND.muted],
+    ["Freezing Time",`${active.freezing_time}s`,BRAND.red],
+    ["Locomotion",`${active.locomotion_pct}%`,BRAND.green],
+    ["Duration",`${active.duration_sec}s`,BRAND.blue],
+    ["Frames",active.total_frames,BRAND.muted],
+    ["Phase",active.phase||phase,pc],
+    ["Memory",active.freezing_pct>=50?"Intact":"Low",getFreezeColor(active.freezing_pct)],
+  ]:[];
+
+  // Acquisition learning curve
+  const acqData=all.filter(r=>(r.phase||"").toLowerCase().includes("acq")).sort((a,b)=>parseInt(a.trial||0)-parseInt(b.trial||0)).map(r=>({label:`T${r.trial||"?"}`,value:parseFloat(r.freezingPct||r.freezing_pct)||0}));
+
+  // Summary stats
+  const animals=Object.values(byAnimal);
+  const avgContextFreeze=animals.filter(a=>a.context).length?
+    (animals.filter(a=>a.context).reduce((s,a)=>s+(parseFloat(a.context.freezingPct||a.context.freezing_pct)||0),0)/animals.filter(a=>a.context).length).toFixed(1):"—";
+  const avgCueFreeze=animals.filter(a=>a.cue.length).length?
+    (animals.filter(a=>a.cue.length).reduce((s,a)=>s+(parseFloat(a.cue[a.cue.length-1]?.freezingPct||0)||0),0)/animals.filter(a=>a.cue.length).length).toFixed(1):"—";
+
+  useEffect(()=>{
+    const canvas=arenaRef.current; if(!canvas) return;
+    const ctx=canvas.getContext("2d"); ctx.clearRect(0,0,180,180); ctx.fillStyle=BRAND.bg; ctx.fillRect(0,0,180,180);
+    // Chamber outline
+    ctx.strokeStyle=BRAND.border; ctx.lineWidth=3; ctx.beginPath(); ctx.roundRect(15,15,150,150,4); ctx.stroke();
+    // Grid floor
+    ctx.strokeStyle=BRAND.dim; ctx.lineWidth=0.5;
+    for(let i=0;i<6;i++){ ctx.beginPath(); ctx.moveTo(15,30+i*25); ctx.lineTo(165,30+i*25); ctx.stroke(); }
+    for(let i=0;i<6;i++){ ctx.beginPath(); ctx.moveTo(30+i*25,15); ctx.lineTo(30+i*25,165); ctx.stroke(); }
+    // Labels
+    ctx.fillStyle=BRAND.muted; ctx.font="8px monospace"; ctx.textAlign="center";
+    ctx.fillText("CONDITIONING CHAMBER",90,10);
+    ctx.fillText("300×320×300mm",90,175);
+    // Shock grid indicator
+    ctx.fillStyle=BRAND.red+"22"; ctx.fillRect(15,130,150,35);
+    ctx.fillStyle=BRAND.red; ctx.font="7px monospace"; ctx.textAlign="center"; ctx.fillText("SHOCK GRID FLOOR (5mm rods, 12mm spacing)",90,150);
+    // Camera icon
+    ctx.fillStyle=BRAND.gold; ctx.font="14px monospace"; ctx.textAlign="left"; ctx.fillText("📹",20,30);
+    ctx.fillStyle=BRAND.gold; ctx.font="7px monospace"; ctx.fillText("VIDEO",20,40);
+    // Tone indicator
+    ctx.fillStyle="#ec4899"; ctx.font="14px monospace"; ctx.textAlign="right"; ctx.fillText("🔊",160,30);
+    ctx.fillStyle="#ec4899"; ctx.font="7px monospace"; ctx.fillText("TONE",160,40);
+    // Rat
+    ctx.font="20px monospace"; ctx.textAlign="center"; ctx.fillText("🐀",90,105);
+  },[]);
+
+  return (
+    <div>
+      {/* Attribution banner */}
+      <div style={{background:"#a855f711",border:"1px solid #a855f733",borderRadius:"10px",padding:"10px 16px",marginBottom:"16px",fontSize:"10px",color:"#a855f7",lineHeight:"1.7"}}>
+        <strong>🔬 Custom Apparatus:</strong> Low-Cost Fear-Conditioning Setup — Abdulmajeed W.I. et al., Pac. J. Med. Sci. 27(2), 50–62 (2026) · Dept. of Physiology &amp; Computer Engineering, University of Ilorin<br/>
+        <span style={{color:BRAND.muted}}>~97.5% cost reduction vs commercial systems ($100 vs $4,000+) · ATmega328P controller · 0.1–4 mA programmable shock · 300×320×300mm acrylic chamber</span>
+      </div>
+
+      <div style={S.grid4}>
+        <StatCard label="Avg Context Freeze" value={avgContextFreeze!=="—"?`${avgContextFreeze}%`:avgContextFreeze} color="#a855f7" sub="Hippocampal memory"/>
+        <StatCard label="Avg Cue Freeze" value={avgCueFreeze!=="—"?`${avgCueFreeze}%`:avgCueFreeze} color="#ec4899" sub="Amygdala memory"/>
+        <StatCard label="Animals" value={animals.length||all.length} color={BRAND.gold}/>
+        <StatCard label="Sessions" value={all.length} color={BRAND.blue}/>
+      </div>
+
+      <hr style={S.divider}/>
+
+      {/* Phase selector */}
+      <div style={{...S.card,marginBottom:"16px"}}>
+        <div style={S.cardTitle}>📋 Select Test Phase</div>
+        <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+          {[
+            {id:"acquisition",label:"📅 Day 1 — Acquisition",desc:"5 tone-shock pairings (20s tone + 2s shock, 1.5 mA)",color:BRAND.red},
+            {id:"context",label:"🏠 Day 2 — Context Test",desc:"8 min re-exposure, no tone/shock — hippocampal memory",color:"#a855f7"},
+            {id:"cue",label:"🔊 Day 2 — Cue Test",desc:"Neutral context + 5 tone presentations — amygdala memory",color:"#ec4899"},
+          ].map(p=>(
+            <button key={p.id} onClick={()=>{setPhase(p.id);setForm(f=>({...f,phase:p.label.split("—")[1]?.trim()||p.id}));}} style={{flex:1,minWidth:"200px",padding:"12px 16px",borderRadius:"8px",border:`2px solid ${phase===p.id?p.color:BRAND.border}`,background:phase===p.id?p.color+"22":"transparent",cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all 0.2s"}}>
+              <div style={{fontSize:"11px",fontWeight:"700",color:phase===p.id?p.color:BRAND.muted,marginBottom:"4px"}}>{p.label}</div>
+              <div style={{fontSize:"9px",color:BRAND.dim}}>{p.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Video upload */}
+      <div style={{...S.card,marginBottom:"16px",border:`1px solid ${pc}44`}}>
+        <div style={S.cardTitle}>🎥 Video Upload — Auto Freezing Detection</div>
+        <VideoUpload onResult={onVideoResult} endpoint="/process/fc" processing={processing} setProcessing={setProcessing} color={pc}/>
+        <ResultsPanel result={active} color={pc} fields={resultFields} onDownloadCSV={exportCSV}/>
+      </div>
+
+      <div style={S.grid2}>
+        {/* Trajectory + heatmap */}
+        <div style={S.card}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+            <div style={{display:"flex",gap:"4px"}}>{["trajectory","heatmap"].map(t=><button key={t} style={S.tab(viz===t,pc)} onClick={()=>setViz(t)}>{t.toUpperCase()}</button>)}</div>
+            <button style={S.btnO(pc)} onClick={()=>downloadCanvas(viz==="trajectory"?trajRef:heatRef,`fc_${viz}.png`)}>⬇ PNG</button>
+          </div>
+          {viz==="trajectory"
+            ?<TrajectoryCanvas positions={positions} color={pc} canvasRef={trajRef} shape="square"/>
+            :<HeatmapCanvas positions={positions} canvasRef={heatRef}/>
+          }
+          <div style={{fontSize:"9px",color:BRAND.muted,marginTop:"6px"}}>
+            <span style={{color:BRAND.red}}>■ High freeze zones</span> · <span style={{color:BRAND.green}}>■ Movement zones</span>
+          </div>
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+          {/* Chamber diagram */}
+          <div style={S.card}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+              <div style={S.cardTitle}>🔬 Chamber Diagram</div>
+              <button style={S.btnO(pc)} onClick={()=>downloadCanvas(arenaRef,"fc_chamber.png")}>⬇ PNG</button>
+            </div>
+            <div style={{display:"flex",justifyContent:"center"}}><canvas ref={arenaRef} width={180} height={180}/></div>
+          </div>
+
+          {/* Protocol reference */}
+          <div style={S.card}>
+            <div style={S.cardTitle}>📋 Protocol Reference</div>
+            <div style={{fontSize:"9px",color:BRAND.muted,lineHeight:"2"}}>
+              <div style={{display:"flex",justifyContent:"space-between",borderBottom:`1px solid ${BRAND.dim}`,paddingBottom:"4px",marginBottom:"4px"}}><span style={{color:BRAND.text}}>Baseline</span><span>180s free exploration</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",borderBottom:`1px solid ${BRAND.dim}`,paddingBottom:"4px",marginBottom:"4px"}}><span style={{color:BRAND.text}}>Tone (CS)</span><span>20s, 55 dB</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",borderBottom:`1px solid ${BRAND.dim}`,paddingBottom:"4px",marginBottom:"4px"}}><span style={{color:BRAND.text}}>Shock (US)</span><span>2s, 1.5 mA</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",borderBottom:`1px solid ${BRAND.dim}`,paddingBottom:"4px",marginBottom:"4px"}}><span style={{color:BRAND.text}}>Trials</span><span>5 (T1–T5), 1 min ITI</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",borderBottom:`1px solid ${BRAND.dim}`,paddingBottom:"4px",marginBottom:"4px"}}><span style={{color:BRAND.text}}>Context Test</span><span>8 min, +24h</span></div>
+              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:BRAND.text}}>Cue Test</span><span>180s base + 5 tones</span></div>
+            </div>
+          </div>
+
+          {/* Learning curve */}
+          {acqData.length>0&&(
+            <div style={S.card}>
+              <div style={S.cardTitle}>📉 Acquisition Learning Curve</div>
+              <BarChart data={acqData} color={BRAND.red} height={90}/>
+              <div style={{fontSize:"9px",color:BRAND.muted,marginTop:"6px"}}>Freezing % per trial — increasing = successful acquisition</div>
+            </div>
+          )}
+
+          {/* Memory summary */}
+          {animals.length>0&&animals.some(a=>a.context||a.cue.length)&&(
+            <div style={S.card}>
+              <div style={S.cardTitle}>🧠 Memory Profile</div>
+              {animals.filter(a=>a.context||a.cue.length).map((a,i)=>{
+                const ctx=parseFloat(a.context?.freezingPct||a.context?.freezing_pct)||0;
+                const cue=parseFloat(a.cue[a.cue.length-1]?.freezingPct||0)||0;
+                const mem=getMemoryStatus(ctx,cue);
+                return(
+                  <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${BRAND.dim}22`}}>
+                    <span style={{fontSize:"10px",color:BRAND.text}}>{a.name}</span>
+                    <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+                      <span style={{fontSize:"9px",color:"#a855f7"}}>Ctx:{ctx}%</span>
+                      <span style={{fontSize:"9px",color:"#ec4899"}}>Cue:{cue}%</span>
+                      <span style={{...S.badge(mem.color),fontSize:"8px"}}>{mem.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <hr style={S.divider}/>
+
+      {/* Manual entry */}
+      <div style={S.card}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+          <div style={S.cardTitle}>➕ Manual Data Entry</div>
+          {all.length>0&&<button style={S.btnO(pc)} onClick={exportCSV}>⬇ Export CSV</button>}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"10px"}}>
+          {[["Animal ID","animal","Rat-01","text"],["Group","group","Control","text"],["Day","day","1","number"],["Trial #","trial","1","number"],["Baseline Freeze%","baselineFreezing","5","number"],["Freezing %","freezingPct","60","number"],["Shock Intensity(mA)","shockIntensity","1.5","number"],["Tone Freq(dB)","toneFreq","55","number"],["ITI (s)","iti","60","number"]].map(([l,k,p,t])=>(
+            <div key={k}><label style={S.label}>{l}</label><input style={S.input} type={t} value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})} placeholder={p}/></div>
+          ))}
+          <div style={{gridColumn:"1/-1"}}><label style={S.label}>Notes</label><input style={S.input} type="text" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="e.g. scopolamine 10mg/kg i.p. post-training"/></div>
+        </div>
+        <div style={{display:"flex",gap:"10px",marginTop:"12px"}}>
+          <button style={{...S.btn(pc),flex:1}} onClick={()=>{ if(!form.freezingPct) return; setRecords(r=>[...r,{...form,id:Date.now()}]); setForm(f=>({...f,animal:"",trial:"",baselineFreezing:"",freezingPct:"",notes:""})); }}>Add Record</button>
+        </div>
+      </div>
+
+      {/* Results table */}
+      {all.length>0&&(
+        <div style={{...S.card,marginTop:"14px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+            <div style={S.cardTitle}>📋 Fear Conditioning Log ({all.length} records)</div>
+            <button style={S.btnO(pc)} onClick={exportCSV}>⬇ Export CSV</button>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={S.table}>
+              <thead><tr>{["Animal","Group","Phase","Trial","Baseline%","Freezing%","Shock(mA)","ITI(s)","Memory","Source"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+              <tbody>{all.map((r,i)=>{
+                const ph=(r.phase||"").toLowerCase();
+                const memType=ph.includes("context")?"Hippocampal":ph.includes("cue")?"Amygdala":"Acquisition";
+                const memColor=ph.includes("context")?"#a855f7":ph.includes("cue")?"#ec4899":BRAND.red;
+                return(
+                  <tr key={r.id||i}>
+                    <td style={S.td}>{r.animal||r.name}</td>
+                    <td style={S.td}><span style={S.badge(pc)}>{r.group||"—"}</span></td>
+                    <td style={S.td}><span style={S.badge(memColor)}>{r.phase||"—"}</span></td>
+                    <td style={S.td}>{r.trial||"—"}</td>
+                    <td style={{...S.td,color:BRAND.muted}}>{r.baselineFreezing||r.baseline_freezing_pct||"—"}%</td>
+                    <td style={{...S.td,color:getFreezeColor(r.freezingPct||r.freezing_pct),fontWeight:"700"}}>{r.freezingPct||r.freezing_pct}%</td>
+                    <td style={S.td}>{r.shockIntensity||"1.5"} mA</td>
+                    <td style={S.td}>{r.iti||"60"}s</td>
+                    <td style={S.td}><span style={S.badge(memColor)}>{memType}</span></td>
+                    <td style={S.td}><span style={S.badge(r.positions?BRAND.green:BRAND.muted)}>{r.positions?"Video":"Manual"}</span></td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
-const TABS=[{id:"mwm",label:"🏊 MWM",color:BRAND.gold},{id:"ymaze",label:"🔀 Y-Maze",color:BRAND.green},{id:"oft",label:"⬜ OFT",color:BRAND.blue},{id:"nor",label:"🔬 NOR",color:BRAND.orange}];
-const DESCS={mwm:"Morris Water Maze — spatial memory, escape latency, probe trial, quadrant analysis",ymaze:"Y-Maze — spontaneous alternation, working memory, arm time distribution",oft:"Open Field Test — anxiety index, locomotion, center/periphery, rearing, freezing",nor:"Novel Object Recognition — discrimination index, recognition index, object preference"};
+const TABS=[
+  {id:"mwm",   label:"🏊 MWM",   color:BRAND.gold},
+  {id:"ymaze", label:"🔀 Y-Maze", color:BRAND.green},
+  {id:"oft",   label:"⬜ OFT",    color:BRAND.blue},
+  {id:"nor",   label:"🔬 NOR",    color:BRAND.orange},
+  {id:"fc",    label:"⚡ Fear Cond.", color:BRAND.red},
+];
+const DESCS={
+  mwm:   "Morris Water Maze — spatial memory, escape latency, probe trial, quadrant analysis",
+  ymaze: "Y-Maze — spontaneous alternation, working memory, arm time distribution",
+  oft:   "Open Field Test — anxiety index, locomotion, center/periphery, rearing, freezing",
+  nor:   "Novel Object Recognition — discrimination index, recognition index, object preference",
+  fc:    "Fear Conditioning — contextual (hippocampal) & cued (amygdala) freezing — Abdulmajeed et al., 2026",
+};
 
 export default function BehavioralSuite() {
   const [tab,setTab]=useState("mwm"); const cur=TABS.find(t=>t.id===tab);
@@ -460,7 +739,11 @@ export default function BehavioralSuite() {
           <div><div style={{fontSize:"18px",fontWeight:"700",color:cur?.color}}>{cur?.label.split(" ").slice(1).join(" ")}</div><div style={{fontSize:"10px",color:BRAND.muted,marginTop:"4px"}}>{DESCS[tab]}</div></div>
           <div style={{fontSize:"9px",color:BRAND.dim,textAlign:"right",lineHeight:"1.8"}}>GRASP / NIH / DSI Program<br/>University of Ilorin, Nigeria</div>
         </div>
-        {tab==="mwm"&&<MWMTab/>}{tab==="ymaze"&&<YMazeTab/>}{tab==="oft"&&<OFTTab/>}{tab==="nor"&&<NORTab/>}
+        {tab==="mwm"&&<MWMTab/>}
+        {tab==="ymaze"&&<YMazeTab/>}
+        {tab==="oft"&&<OFTTab/>}
+        {tab==="nor"&&<NORTab/>}
+        {tab==="fc"&&<FCTab/>}
       </div>
     </div>
   );
